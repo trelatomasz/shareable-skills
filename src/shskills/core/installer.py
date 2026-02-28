@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
-import shutil
+import shutil  # used by execute_plan --clean path
 from datetime import datetime, timezone
 from pathlib import Path
 
+from shskills.adapters.base import AgentAdapter
 from shskills.config import DEFAULT_REF, resolve_dest
 from shskills.core.fetcher import fetch_skills_tree
 from shskills.core.manifest import (
@@ -111,18 +112,10 @@ def build_plan(
 # ---------------------------------------------------------------------------
 
 
-def _copy_skill(skill: SkillInfo, dest_dir: Path) -> None:
-    """Copy all files from skill.local_path into dest_dir."""
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    for filename in skill.files:
-        src = skill.local_path / filename
-        dst = dest_dir / filename
-        shutil.copy2(str(src), str(dst))
-
-
 def execute_plan(
     plan: InstallPlan,
     manifest: Manifest,
+    adapter: AgentAdapter,
     verbose: bool = False,
 ) -> InstallResult:
     """Execute all actions in *plan*, update *manifest* in-place, return result."""
@@ -155,7 +148,7 @@ def execute_plan(
             continue
 
         try:
-            _copy_skill(skill, dest_dir)
+            adapter.preprocess(skill, dest_dir)
         except OSError as exc:
             result.errors.append(f"{action.dest_rel}: {exc}")
             logger.error("error installing '%s': %s", action.dest_rel, exc)
@@ -234,8 +227,11 @@ def install(
         InstallError:  strict=True and conflicts were detected.
         ManifestError: Manifest could not be read or written.
     """
+    from shskills.adapters import get_adapter
+
     dest_path = resolve_dest(agent, dest)
     source = SkillSource(url=url, ref=ref, subpath=subpath)
+    adapter = get_adapter(agent)
 
     existing_manifest = read_manifest(dest_path)
 
@@ -279,7 +275,7 @@ def install(
         # Always update the source reference in the manifest
         working_manifest.source = source
 
-        result = execute_plan(plan, working_manifest, verbose=verbose)
+        result = execute_plan(plan, working_manifest, adapter, verbose=verbose)
 
         if not dry_run and (result.installed or result.updated or result.cleaned):
             write_manifest(dest_path, working_manifest)
