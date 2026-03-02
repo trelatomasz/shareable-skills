@@ -191,7 +191,7 @@ def cmd_install(
 def cmd_list(
     url: Annotated[
         str, typer.Option("--url", "-u", help="Git repository URL.")
-    ] = "git@github.com:trelatomasz/shareable-skills.git",
+    ] = "git@github.com:trelatomasz/shskills.git",
     subpath: Annotated[
         str | None,
         typer.Option("--subpath", "-s", help="Path relative to SKILLS/ to list."),

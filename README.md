@@ -1,10 +1,10 @@
 # shskills
 
-[![CI](https://github.com/trelatomasz/shareable-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/trelatomasz/shareable-skills/actions/workflows/ci.yml)
+[![CI](https://github.com/trelatomasz/shskills/actions/workflows/ci.yml/badge.svg)](https://github.com/trelatomasz/shskills/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/shskills.svg)](https://pypi.org/project/shskills/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/shskills.svg)](https://pypi.org/project/shskills/)
-[![Coverage](https://codecov.io/gh/trelatomasz/shareable-skills/branch/main/graph/badge.svg)](https://codecov.io/gh/trelatomasz/shareable-skills)
+[![Coverage](https://codecov.io/gh/trelatomasz/shskills/branch/main/graph/badge.svg)](https://codecov.io/gh/trelatomasz/shskills)
 
 **Install agent skills from GitHub repositories.**
 
