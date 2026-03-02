@@ -371,7 +371,7 @@ git tag v0.2.0
 git push origin main --tags
 ```
 ### install from test pypi
-python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple shareable-skills
+python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple shskills
 
 ### Manual publish (fallback)
 
