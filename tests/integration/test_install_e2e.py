@@ -253,7 +253,7 @@ class TestSubdirectoryFiles:
         repo.mkdir()
         subprocess.run(["git", "init", "-b", "main", str(repo)], check=True, capture_output=True)
         subprocess.run(
-            ["git", "-C", str(repo), "config", "user.email", "test@shskills.io"],
+            ["git", "-C", str(repo), "config", "user.email", "test@trela.ai"],
             check=True,
             capture_output=True,
         )

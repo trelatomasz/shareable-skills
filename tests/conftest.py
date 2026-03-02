@@ -90,8 +90,6 @@ def git_skills_repo(tmp_path: Path) -> Path:
         check=True,
         capture_output=True,
     )
-    _git(repo, "config", "user.email", "test@shskills.io")
-    _git(repo, "config", "user.name", "shskills-test")
 
     skills = repo / "SKILLS"
     write_skill(skills / "common", "welcome_note")
