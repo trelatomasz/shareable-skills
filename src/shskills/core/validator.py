@@ -16,7 +16,7 @@ from shskills.models import SkillFrontmatter
 
 # Matches a YAML-style --- delimited block at the start of the file.
 _FRONTMATTER_RE = re.compile(r"^---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n", re.DOTALL)
-_FIELD_RE = re.compile(r'^([A-Za-z_]\w*)\s*:\s*(.+)$', re.MULTILINE)
+_FIELD_RE = re.compile(r"^([A-Za-z_]\w*)\s*:\s*(.+)$", re.MULTILINE)
 
 
 def parse_frontmatter(content: str) -> dict[str, str]:
@@ -29,10 +29,7 @@ def parse_frontmatter(content: str) -> dict[str, str]:
     if not match:
         return {}
     fm_text = match.group(1)
-    return {
-        k: v.strip().strip("\"'")
-        for k, v in _FIELD_RE.findall(fm_text)
-    }
+    return {k: v.strip().strip("\"'") for k, v in _FIELD_RE.findall(fm_text)}
 
 
 def parse_skill_frontmatter(skill_dir: Path) -> SkillFrontmatter:
@@ -64,9 +61,7 @@ def assert_path_safe(path: Path, label: str = "path") -> None:
         raise ValidationError(f"Unsafe {label}: absolute path '{path}'")
     for part in path.parts:
         if part in _UNSAFE_SEGMENTS:
-            raise ValidationError(
-                f"Unsafe {label}: segment '{part}' is not allowed in '{path}'"
-            )
+            raise ValidationError(f"Unsafe {label}: segment '{part}' is not allowed in '{path}'")
 
 
 def assert_no_symlinks(skill_dir: Path) -> None:
@@ -102,8 +97,7 @@ def assert_file_sizes(skill_dir: Path, file_names: list[str]) -> None:
         size = (skill_dir / name).stat().st_size
         if size > MAX_FILE_BYTES:
             raise ValidationError(
-                f"File '{name}' in skill '{skill_dir.name}' is {size} bytes "
-                f"(max {MAX_FILE_BYTES})"
+                f"File '{name}' in skill '{skill_dir.name}' is {size} bytes (max {MAX_FILE_BYTES})"
             )
 
 
@@ -140,9 +134,7 @@ def validate_skill_dir(skill_dir: Path) -> tuple[SkillFrontmatter, list[str], st
 
     skill_md = skill_dir / SKILL_MARKER
     if not skill_md.exists():
-        raise ValidationError(
-            f"Missing {SKILL_MARKER} in '{skill_dir}'"
-        )
+        raise ValidationError(f"Missing {SKILL_MARKER} in '{skill_dir}'")
 
     assert_no_symlinks(skill_dir)
 

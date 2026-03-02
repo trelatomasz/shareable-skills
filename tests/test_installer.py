@@ -327,9 +327,7 @@ class TestExecutePlan:
 
 
 class TestInstallPublicApi:
-    def test_returns_empty_result_when_no_skills_found(
-        self, tmp_path: Path
-    ) -> None:
+    def test_returns_empty_result_when_no_skills_found(self, tmp_path: Path) -> None:
         from shskills import install
 
         with patch("shskills.core.installer.fetch_skills_tree") as mock_fetch:
@@ -355,6 +353,7 @@ class TestInstallPublicApi:
 
         # Pre-install with a different sha so a conflict is guaranteed
         from shskills.core.manifest import write_manifest
+
         manifest = _make_manifest(dest, {skill.rel_path: "old_sha"})
         write_manifest(dest, manifest)
 
@@ -401,8 +400,13 @@ class TestDoctorPublicApi:
 
         manifest = _make_manifest(dest)
         update_manifest_skill(
-            manifest, "group/my_skill", "my_skill",
-            "group/my_skill", str(dest / "group" / "my_skill"), sha, files
+            manifest,
+            "group/my_skill",
+            "my_skill",
+            "group/my_skill",
+            str(dest / "group" / "my_skill"),
+            sha,
+            files,
         )
         write_manifest(dest, manifest)
 
@@ -418,8 +422,13 @@ class TestDoctorPublicApi:
         dest = tmp_path / "dest"
         manifest = _make_manifest(dest)
         update_manifest_skill(
-            manifest, "missing/skill", "skill",
-            "missing/skill", str(dest / "missing" / "skill"), "sha123", ["SKILL.md"]
+            manifest,
+            "missing/skill",
+            "skill",
+            "missing/skill",
+            str(dest / "missing" / "skill"),
+            "sha123",
+            ["SKILL.md"],
         )
         write_manifest(dest, manifest)
 
@@ -439,8 +448,13 @@ class TestDoctorPublicApi:
 
         manifest = _make_manifest(dest)
         update_manifest_skill(
-            manifest, "my_skill", "my_skill",
-            "my_skill", str(dest / "my_skill"), "wrong_sha", ["SKILL.md"]
+            manifest,
+            "my_skill",
+            "my_skill",
+            "my_skill",
+            str(dest / "my_skill"),
+            "wrong_sha",
+            ["SKILL.md"],
         )
         write_manifest(dest, manifest)
 

@@ -69,7 +69,7 @@ def _setup_logging(verbose: bool) -> None:
 
 
 @app.command("install")
-def   cmd_install(
+def cmd_install(
     url: Annotated[str, typer.Option("--url", "-u", help="Git repository URL.")],
     agent: _AgentArg = "claude",
     subpath: Annotated[
@@ -107,7 +107,15 @@ def   cmd_install(
     logger = logging.getLogger(__name__)
     logger.debug(
         "install url=%s agent=%s subpath=%s ref=%s dest=%s dry_run=%s force=%s clean=%s strict=%s",
-        url, agent, subpath, ref, dest, dry_run, force, clean, strict,
+        url,
+        agent,
+        subpath,
+        ref,
+        dest,
+        dry_run,
+        force,
+        clean,
+        strict,
     )
 
     from shskills.core.installer import install
@@ -181,9 +189,9 @@ def   cmd_install(
 
 @app.command("list")
 def cmd_list(
-    url: Annotated[str,
-        typer.Option("--url", "-u", help="Git repository URL.")]
-    = "git@github.com:trelatomasz/shareable-skills.git",
+    url: Annotated[
+        str, typer.Option("--url", "-u", help="Git repository URL.")
+    ] = "git@github.com:trelatomasz/shareable-skills.git",
     subpath: Annotated[
         str | None,
         typer.Option("--subpath", "-s", help="Path relative to SKILLS/ to list."),

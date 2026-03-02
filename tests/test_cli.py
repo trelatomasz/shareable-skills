@@ -54,9 +54,12 @@ class TestInstallCommand:
                 app,
                 [
                     "install",
-                    "--url", "https://github.com/x/y",
-                    "--agent", "claude",
-                    "--dest", str(tmp_path),
+                    "--url",
+                    "https://github.com/x/y",
+                    "--agent",
+                    "claude",
+                    "--dest",
+                    str(tmp_path),
                 ],
             )
         assert result.exit_code == 0
@@ -75,8 +78,10 @@ class TestInstallCommand:
                 app,
                 [
                     "install",
-                    "--url", "https://github.com/x/y",
-                    "--dest", str(tmp_path),
+                    "--url",
+                    "https://github.com/x/y",
+                    "--dest",
+                    str(tmp_path),
                     "--dry-run",
                 ],
             )
@@ -90,8 +95,10 @@ class TestInstallCommand:
                 app,
                 [
                     "install",
-                    "--url", "https://github.com/x/y",
-                    "--dest", str(tmp_path),
+                    "--url",
+                    "https://github.com/x/y",
+                    "--dest",
+                    str(tmp_path),
                 ],
             )
         assert "--force" in result.output
@@ -103,8 +110,10 @@ class TestInstallCommand:
                 app,
                 [
                     "install",
-                    "--url", "https://github.com/x/y",
-                    "--dest", str(tmp_path),
+                    "--url",
+                    "https://github.com/x/y",
+                    "--dest",
+                    str(tmp_path),
                 ],
             )
         assert result.exit_code == 1
@@ -116,8 +125,10 @@ class TestInstallCommand:
                 app,
                 [
                     "install",
-                    "--url", "https://github.com/x/y",
-                    "--dest", str(tmp_path),
+                    "--url",
+                    "https://github.com/x/y",
+                    "--dest",
+                    str(tmp_path),
                 ],
             )
         assert result.exit_code == 0
@@ -132,8 +143,10 @@ class TestInstallCommand:
                 app,
                 [
                     "install",
-                    "--url", "https://github.com/x/y",
-                    "--dest", str(tmp_path),
+                    "--url",
+                    "https://github.com/x/y",
+                    "--dest",
+                    str(tmp_path),
                 ],
             )
         assert result.exit_code == 1
@@ -150,11 +163,16 @@ class TestInstallCommand:
                 app,
                 [
                     "install",
-                    "--url", "https://github.com/x/y",
-                    "--agent", "codex",
-                    "--subpath", "aws",
-                    "--ref", "v1.0",
-                    "--dest", str(tmp_path),
+                    "--url",
+                    "https://github.com/x/y",
+                    "--agent",
+                    "codex",
+                    "--subpath",
+                    "aws",
+                    "--ref",
+                    "v1.0",
+                    "--dest",
+                    str(tmp_path),
                     "--force",
                     "--clean",
                     "--strict",
@@ -222,9 +240,7 @@ class TestListCommand:
 class TestInstalledCommand:
     def test_no_skills_shows_message(self, tmp_path: Path) -> None:
         with patch("shskills.core.manifest.installed_skills", return_value=[]):
-            result = runner.invoke(
-                app, ["installed", "--agent", "claude", "--dest", str(tmp_path)]
-            )
+            result = runner.invoke(app, ["installed", "--agent", "claude", "--dest", str(tmp_path)])
         assert result.exit_code == 0
         assert "No skills" in result.output
 
@@ -242,9 +258,7 @@ class TestInstalledCommand:
             )
         ]
         with patch("shskills.core.manifest.installed_skills", return_value=mock_skills):
-            result = runner.invoke(
-                app, ["installed", "--agent", "claude", "--dest", str(tmp_path)]
-            )
+            result = runner.invoke(app, ["installed", "--agent", "claude", "--dest", str(tmp_path)])
         assert result.exit_code == 0
         assert "welcome_note" in result.output
 
@@ -256,13 +270,9 @@ class TestInstalledCommand:
 
 class TestDoctorCommand:
     def test_healthy_exits_0(self, tmp_path: Path) -> None:
-        mock_report = DoctorReport(
-            agent="claude", dest=tmp_path, installed_count=2, issues=[]
-        )
+        mock_report = DoctorReport(agent="claude", dest=tmp_path, installed_count=2, issues=[])
         with patch("shskills.core.installer.doctor", return_value=mock_report):
-            result = runner.invoke(
-                app, ["doctor", "--agent", "claude", "--dest", str(tmp_path)]
-            )
+            result = runner.invoke(app, ["doctor", "--agent", "claude", "--dest", str(tmp_path)])
         assert result.exit_code == 0
         assert "All good" in result.output
 
@@ -271,14 +281,10 @@ class TestDoctorCommand:
             agent="claude",
             dest=tmp_path,
             installed_count=1,
-            issues=[
-                DoctorIssue(severity=DoctorSeverity.ERROR, message="missing dir")
-            ],
+            issues=[DoctorIssue(severity=DoctorSeverity.ERROR, message="missing dir")],
         )
         with patch("shskills.core.installer.doctor", return_value=mock_report):
-            result = runner.invoke(
-                app, ["doctor", "--agent", "claude", "--dest", str(tmp_path)]
-            )
+            result = runner.invoke(app, ["doctor", "--agent", "claude", "--dest", str(tmp_path)])
         assert result.exit_code == 1
         assert "missing dir" in result.output
 
@@ -287,13 +293,9 @@ class TestDoctorCommand:
             agent="claude",
             dest=tmp_path,
             installed_count=1,
-            issues=[
-                DoctorIssue(severity=DoctorSeverity.WARNING, message="hash mismatch")
-            ],
+            issues=[DoctorIssue(severity=DoctorSeverity.WARNING, message="hash mismatch")],
         )
         with patch("shskills.core.installer.doctor", return_value=mock_report):
-            result = runner.invoke(
-                app, ["doctor", "--agent", "claude", "--dest", str(tmp_path)]
-            )
+            result = runner.invoke(app, ["doctor", "--agent", "claude", "--dest", str(tmp_path)])
         assert result.exit_code == 0
         assert "hash mismatch" in result.output

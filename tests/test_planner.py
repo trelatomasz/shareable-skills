@@ -117,9 +117,7 @@ class TestDiscoverSkills:
 
     def test_root_is_skill_dir(self, tmp_path: Path) -> None:
         """When the fetched root is itself a skill directory."""
-        (tmp_path / "SKILL.md").write_text(
-            "---\nname: root_skill\n---\n# root", encoding="utf-8"
-        )
+        (tmp_path / "SKILL.md").write_text("---\nname: root_skill\n---\n# root", encoding="utf-8")
         skills = discover_skills(tmp_path, subpath="tools/root_skill")
         assert len(skills) == 1
         assert skills[0].name == "root_skill"

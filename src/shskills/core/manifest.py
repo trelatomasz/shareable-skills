@@ -32,9 +32,7 @@ def read_manifest(dest: Path) -> Manifest | None:
         data = json.loads(raw)
         return Manifest.model_validate(data)
     except Exception as exc:
-        raise ManifestError(
-            f"Failed to parse manifest at '{manifest_path}': {exc}"
-        ) from exc
+        raise ManifestError(f"Failed to parse manifest at '{manifest_path}': {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -56,9 +54,7 @@ def write_manifest(dest: Path, manifest: Manifest) -> None:
     serialized = json.dumps(payload, indent=2, default=str)
 
     try:
-        fd, tmp_path = tempfile.mkstemp(
-            dir=str(dest), prefix=".manifest-", suffix=".tmp"
-        )
+        fd, tmp_path = tempfile.mkstemp(dir=str(dest), prefix=".manifest-", suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 fh.write(serialized)
@@ -68,9 +64,7 @@ def write_manifest(dest: Path, manifest: Manifest) -> None:
                 os.unlink(tmp_path)
             raise
     except Exception as exc:
-        raise ManifestError(
-            f"Failed to write manifest to '{manifest_path}': {exc}"
-        ) from exc
+        raise ManifestError(f"Failed to write manifest to '{manifest_path}': {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -110,9 +104,7 @@ def remove_manifest_skill(manifest: Manifest, dest_rel: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def installed_skills(
-    agent: str, dest: Path | None = None
-) -> list[InstalledSkill]:
+def installed_skills(agent: str, dest: Path | None = None) -> list[InstalledSkill]:
     """Return all skills recorded in the manifest at *dest*.
 
     Args:

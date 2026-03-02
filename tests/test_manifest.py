@@ -138,12 +138,8 @@ class TestInstalledSkills:
 
     def test_returns_list_from_manifest(self, tmp_path: Path) -> None:
         m = _make_manifest(tmp_path)
-        update_manifest_skill(
-            m, "s1", "s1", "group/s1", ".claude/skills/s1", "sha1", ["SKILL.md"]
-        )
-        update_manifest_skill(
-            m, "s2", "s2", "group/s2", ".claude/skills/s2", "sha2", ["SKILL.md"]
-        )
+        update_manifest_skill(m, "s1", "s1", "group/s1", ".claude/skills/s1", "sha1", ["SKILL.md"])
+        update_manifest_skill(m, "s2", "s2", "group/s2", ".claude/skills/s2", "sha2", ["SKILL.md"])
         write_manifest(tmp_path, m)
 
         result = installed_skills(agent="claude", dest=tmp_path)

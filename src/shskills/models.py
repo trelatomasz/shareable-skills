@@ -117,9 +117,7 @@ class Manifest(BaseModel):
     version: str = "1"
     agent: str
     dest: str
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC)
-    )
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     source: SkillSource
     skills: dict[str, InstalledSkill] = {}
     """Keys are dest_rel paths (relative to the dest dir)."""

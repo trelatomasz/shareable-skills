@@ -296,7 +296,7 @@ def _parse_skill_key(dest_rel: str) -> tuple[str, str]:
     idx = dest_rel.find("__")
     if idx == -1:
         return "", dest_rel
-    return dest_rel[:idx], dest_rel[idx + 2:]
+    return dest_rel[:idx], dest_rel[idx + 2 :]
 
 
 def _key_matches(dest_rel: str, name: str | None, prefix: str | None) -> bool:
@@ -339,9 +339,7 @@ def uninstall(
         return InstallResult()
 
     matches: dict[str, object] = {
-        k: v
-        for k, v in manifest.skills.items()
-        if _key_matches(k, name, prefix)
+        k: v for k, v in manifest.skills.items() if _key_matches(k, name, prefix)
     }
 
     if not matches:
@@ -416,9 +414,7 @@ def doctor(agent: str, dest: Path | None = None) -> DoctorReport:
     try:
         manifest = _read(dest_path)
     except ManifestError as exc:
-        report.issues.append(
-            DoctorIssue(severity=DoctorSeverity.ERROR, message=str(exc))
-        )
+        report.issues.append(DoctorIssue(severity=DoctorSeverity.ERROR, message=str(exc)))
         return report
 
     if manifest is None:

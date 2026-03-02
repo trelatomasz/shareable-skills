@@ -83,9 +83,7 @@ class TestIdempotency:
         assert r2.updated == []
         assert len(r2.skipped) == 2
 
-    def test_manifest_sha_stable_across_runs(
-        self, git_skills_repo: Path, tmp_path: Path
-    ) -> None:
+    def test_manifest_sha_stable_across_runs(self, git_skills_repo: Path, tmp_path: Path) -> None:
         dest = tmp_path / ".claude" / "skills"
         install(url=_url(git_skills_repo), agent="claude", dest=dest)
 
@@ -103,9 +101,7 @@ class TestIdempotency:
 
 
 class TestSubpathInstall:
-    def test_installs_only_matching_skills(
-        self, git_skills_repo: Path, tmp_path: Path
-    ) -> None:
+    def test_installs_only_matching_skills(self, git_skills_repo: Path, tmp_path: Path) -> None:
         dest = tmp_path / ".claude" / "skills"
         result = install(
             url=_url(git_skills_repo),
@@ -118,9 +114,7 @@ class TestSubpathInstall:
         assert (dest / "welcome_note" / "SKILL.md").exists()
         assert not (dest / "aws").exists()
 
-    def test_dest_rel_strips_subpath_prefix(
-        self, git_skills_repo: Path, tmp_path: Path
-    ) -> None:
+    def test_dest_rel_strips_subpath_prefix(self, git_skills_repo: Path, tmp_path: Path) -> None:
         dest = tmp_path / ".claude" / "skills"
         install(
             url=_url(git_skills_repo),
@@ -153,9 +147,7 @@ class TestSubpathInstall:
 
 
 class TestConflicts:
-    def test_conflict_when_source_updated(
-        self, git_skills_repo: Path, tmp_path: Path
-    ) -> None:
+    def test_conflict_when_source_updated(self, git_skills_repo: Path, tmp_path: Path) -> None:
         """Conflict is triggered when the *source* skill changes between installs."""
         from tests.conftest import _git
 
@@ -171,9 +163,7 @@ class TestConflicts:
         result = install(url=_url(git_skills_repo), agent="claude", dest=dest)
         assert "common__welcome_note" in result.conflicts
 
-    def test_force_resolves_conflict(
-        self, git_skills_repo: Path, tmp_path: Path
-    ) -> None:
+    def test_force_resolves_conflict(self, git_skills_repo: Path, tmp_path: Path) -> None:
         """--force overwrites when the source skill has changed."""
         from tests.conftest import _git
 
@@ -186,9 +176,7 @@ class TestConflicts:
         _git(git_skills_repo, "add", ".")
         _git(git_skills_repo, "commit", "-m", "update welcome_note")
 
-        result = install(
-            url=_url(git_skills_repo), agent="claude", dest=dest, force=True
-        )
+        result = install(url=_url(git_skills_repo), agent="claude", dest=dest, force=True)
         assert "common__welcome_note" in result.updated
         assert result.conflicts == []
 
@@ -201,9 +189,7 @@ class TestConflicts:
 class TestDryRun:
     def test_no_files_written(self, git_skills_repo: Path, tmp_path: Path) -> None:
         dest = tmp_path / ".claude" / "skills"
-        result = install(
-            url=_url(git_skills_repo), agent="claude", dest=dest, dry_run=True
-        )
+        result = install(url=_url(git_skills_repo), agent="claude", dest=dest, dry_run=True)
 
         assert len(result.installed) == 2
         assert not dest.exists()
@@ -221,9 +207,7 @@ class TestDryRun:
 
 
 class TestClean:
-    def test_orphaned_skills_removed(
-        self, git_skills_repo: Path, tmp_path: Path
-    ) -> None:
+    def test_orphaned_skills_removed(self, git_skills_repo: Path, tmp_path: Path) -> None:
         dest = tmp_path / ".claude" / "skills"
 
         # Install all skills (common + aws)
@@ -243,9 +227,7 @@ class TestClean:
         assert "aws__scale_up" in result.cleaned
         assert not (dest / "aws__scale_up").exists()
 
-    def test_no_clean_without_flag(
-        self, git_skills_repo: Path, tmp_path: Path
-    ) -> None:
+    def test_no_clean_without_flag(self, git_skills_repo: Path, tmp_path: Path) -> None:
         """Without --clean a second install never removes anything."""
         dest = tmp_path / ".claude" / "skills"
         install(url=_url(git_skills_repo), agent="claude", dest=dest)
@@ -272,11 +254,13 @@ class TestSubdirectoryFiles:
         subprocess.run(["git", "init", "-b", "main", str(repo)], check=True, capture_output=True)
         subprocess.run(
             ["git", "-C", str(repo), "config", "user.email", "test@shskills.io"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(repo), "config", "user.name", "shskills-test"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
 
         from tests.conftest import write_skill
@@ -290,7 +274,8 @@ class TestSubdirectoryFiles:
         subprocess.run(["git", "-C", str(repo), "add", "."], check=True, capture_output=True)
         subprocess.run(
             ["git", "-C", str(repo), "commit", "-m", "add skill with hooks"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
 
         dest = tmp_path / ".claude" / "skills"
@@ -301,9 +286,8 @@ class TestSubdirectoryFiles:
         assert (dest / "common__prompt_skill" / "SKILL.md").exists()
         assert (dest / "common__prompt_skill" / "hooks" / "run.py").exists()
         assert (
-            (dest / "common__prompt_skill" / "hooks" / "run.py").read_text()
-            == "print('hello from hook')"
-        )
+            dest / "common__prompt_skill" / "hooks" / "run.py"
+        ).read_text() == "print('hello from hook')"
 
     def test_nested_files_in_manifest_sha(self, tmp_path: Path) -> None:
         """Manifest SHA-256 covers subdirectory files so changes are detected."""
@@ -314,11 +298,13 @@ class TestSubdirectoryFiles:
         subprocess.run(["git", "init", "-b", "main", str(repo)], check=True, capture_output=True)
         subprocess.run(
             ["git", "-C", str(repo), "config", "user.email", "test@shskills.io"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(repo), "config", "user.name", "shskills-test"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
 
         from tests.conftest import write_skill
@@ -331,7 +317,8 @@ class TestSubdirectoryFiles:
         subprocess.run(["git", "-C", str(repo), "add", "."], check=True, capture_output=True)
         subprocess.run(
             ["git", "-C", str(repo), "commit", "-m", "v1"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
 
         dest = tmp_path / "dest"
@@ -344,7 +331,8 @@ class TestSubdirectoryFiles:
         subprocess.run(["git", "-C", str(repo), "add", "."], check=True, capture_output=True)
         subprocess.run(
             ["git", "-C", str(repo), "commit", "-m", "v2"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
 
         result = install(url=f"file://{repo}", agent="claude", dest=dest)
@@ -372,9 +360,7 @@ class TestLayoutStructure:
         # No temp files left over
         assert not list(dest.glob(".manifest-*.tmp"))
 
-    def test_manifest_skill_entries_valid(
-        self, git_skills_repo: Path, tmp_path: Path
-    ) -> None:
+    def test_manifest_skill_entries_valid(self, git_skills_repo: Path, tmp_path: Path) -> None:
         dest = tmp_path / ".claude" / "skills"
         install(url=_url(git_skills_repo), agent="claude", dest=dest)
 
