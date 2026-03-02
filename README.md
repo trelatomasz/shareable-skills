@@ -1,5 +1,11 @@
 # shskills
 
+[![CI](https://github.com/trelatomasz/shareable-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/trelatomasz/shareable-skills/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/shskills.svg)](https://pypi.org/project/shskills/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/shskills.svg)](https://pypi.org/project/shskills/)
+[![Coverage](https://codecov.io/gh/trelatomasz/shareable-skills/branch/main/graph/badge.svg)](https://codecov.io/gh/trelatomasz/shareable-skills)
+
 **Install agent skills from GitHub repositories.**
 
 `shskills` is a CLI tool and Python library that fetches skill definitions from a remote Git repository and installs them into the correct directory for your AI agent (Claude, Codex, Gemini, OpenCode, or a custom target).
