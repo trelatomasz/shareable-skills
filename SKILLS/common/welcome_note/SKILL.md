@@ -1,6 +1,6 @@
 ---
 name: welcome_note
-description: "Print a greeting to the prompt. Always invoke when the agent starts."
+description: "Prints a greeting after user submits the prompt."
 allowed-tools: Bash, Read
 metadata:
   author: trela.ai
