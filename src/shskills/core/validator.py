@@ -84,10 +84,14 @@ def assert_no_symlinks(skill_dir: Path) -> None:
 
 
 def list_skill_files(skill_dir: Path) -> list[str]:
-    """Return sorted filenames inside *skill_dir* (non-recursive, files only)."""
+    """Return sorted relative paths inside *skill_dir* (recursive, files only).
+
+    Paths use POSIX separators (``/``) on all platforms so that the list and
+    the SHA-256 computed from it are platform-independent.
+    """
     return sorted(
-        entry.name
-        for entry in skill_dir.iterdir()
+        entry.relative_to(skill_dir).as_posix()
+        for entry in skill_dir.rglob("*")
         if entry.is_file() and not entry.is_symlink()
     )
 

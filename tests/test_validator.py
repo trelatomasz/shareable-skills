@@ -190,6 +190,53 @@ class TestListSkillFiles:
         files = list_skill_files(d)
         assert "link.txt" not in files
 
+    def test_returns_recursive_relative_paths(self, tmp_path: Path) -> None:
+        d = tmp_path / "skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text("")
+        sub = d / "hooks"
+        sub.mkdir()
+        (sub / "run.py").write_text("")
+
+        files = list_skill_files(d)
+        assert "hooks/run.py" in files
+        assert "SKILL.md" in files
+
+    def test_nested_files_sorted_with_top_level(self, tmp_path: Path) -> None:
+        d = tmp_path / "skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text("")
+        (d / "assets").mkdir()
+        (d / "assets" / "icon.png").write_bytes(b"")
+        (d / "assets" / "banner.png").write_bytes(b"")
+
+        files = list_skill_files(d)
+        assert files == sorted(files)
+        assert "assets/icon.png" in files
+        assert "assets/banner.png" in files
+
+    def test_deeply_nested_file_included(self, tmp_path: Path) -> None:
+        d = tmp_path / "skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text("")
+        deep = d / "a" / "b" / "c"
+        deep.mkdir(parents=True)
+        (deep / "leaf.txt").write_text("")
+
+        files = list_skill_files(d)
+        assert "a/b/c/leaf.txt" in files
+
+    def test_subdirectory_entries_not_included(self, tmp_path: Path) -> None:
+        """Directory entries themselves must not appear — only files."""
+        d = tmp_path / "skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text("")
+        (d / "hooks").mkdir()
+        (d / "hooks" / "run.py").write_text("")
+
+        files = list_skill_files(d)
+        assert "hooks" not in files
+
 
 # ---------------------------------------------------------------------------
 # compute_skill_sha256
@@ -226,6 +273,31 @@ class TestComputeSkillSha256:
         sha = compute_skill_sha256(d, ["SKILL.md"])
         assert len(sha) == 64
         assert all(c in "0123456789abcdef" for c in sha)
+
+    def test_with_nested_relative_path(self, tmp_path: Path) -> None:
+        d = tmp_path / "skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text("content", encoding="utf-8")
+        (d / "hooks").mkdir()
+        (d / "hooks" / "run.py").write_text("print('hi')", encoding="utf-8")
+
+        sha = compute_skill_sha256(d, ["SKILL.md", "hooks/run.py"])
+        assert len(sha) == 64
+
+    def test_nested_file_affects_sha(self, tmp_path: Path) -> None:
+        d = tmp_path / "skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text("content", encoding="utf-8")
+        (d / "hooks").mkdir()
+        hook = d / "hooks" / "run.py"
+
+        hook.write_text("v1", encoding="utf-8")
+        sha1 = compute_skill_sha256(d, ["SKILL.md", "hooks/run.py"])
+
+        hook.write_text("v2", encoding="utf-8")
+        sha2 = compute_skill_sha256(d, ["SKILL.md", "hooks/run.py"])
+
+        assert sha1 != sha2
 
 
 # ---------------------------------------------------------------------------
@@ -276,3 +348,31 @@ class TestValidateSkillDir:
 
         with pytest.raises(ValidationError, match="Symlink"):
             validate_skill_dir(d)
+
+    def test_skill_with_subdirectory(self, tmp_path: Path) -> None:
+        d = tmp_path / "my_skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text(VALID_FM, encoding="utf-8")
+        (d / "hooks").mkdir()
+        (d / "hooks" / "run.py").write_text("print('ok')", encoding="utf-8")
+
+        fm, files, sha = validate_skill_dir(d)
+        assert "SKILL.md" in files
+        assert "hooks/run.py" in files
+        assert len(sha) == 64
+
+    def test_subdirectory_files_included_in_sha(self, tmp_path: Path) -> None:
+        """SHA changes when a nested file is modified."""
+        d = tmp_path / "my_skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text(VALID_FM, encoding="utf-8")
+        (d / "hooks").mkdir()
+        hook = d / "hooks" / "run.py"
+
+        hook.write_text("v1", encoding="utf-8")
+        _, _, sha1 = validate_skill_dir(d)
+
+        hook.write_text("v2", encoding="utf-8")
+        _, _, sha2 = validate_skill_dir(d)
+
+        assert sha1 != sha2

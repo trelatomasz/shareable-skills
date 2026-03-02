@@ -36,6 +36,28 @@ def _make_skill(tmp_path: Path, name: str = "test_skill") -> SkillInfo:
     )
 
 
+def _make_skill_with_subdir(tmp_path: Path, name: str = "test_skill") -> SkillInfo:
+    """Build a SkillInfo that contains files in a subdirectory."""
+    skill_dir = tmp_path / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        f"---\nname: {name}\ndescription: test\n---\n# {name}\n",
+        encoding="utf-8",
+    )
+    hooks = skill_dir / "hooks"
+    hooks.mkdir()
+    (hooks / "run.py").write_text("print('hello')", encoding="utf-8")
+    return SkillInfo(
+        name=name,
+        rel_path=name,
+        source_rel=f"group/{name}",
+        local_path=skill_dir,
+        frontmatter=SkillFrontmatter(name=name, description="test"),
+        files=["SKILL.md", "hooks/run.py"],
+        content_sha256="0" * 64,
+    )
+
+
 # ---------------------------------------------------------------------------
 # get_adapter registry
 # ---------------------------------------------------------------------------
@@ -98,6 +120,37 @@ class TestAdapterPreprocess:
         adapter.preprocess(skill, dest_dir)
 
         assert dest_dir.is_dir()
+
+    def test_copies_nested_files(self, tmp_path: Path) -> None:
+        skill = _make_skill_with_subdir(tmp_path / "src")
+        dest_dir = tmp_path / "dest" / skill.name
+
+        adapter = ClaudeAdapter()
+        written = adapter.preprocess(skill, dest_dir)
+
+        assert "hooks/run.py" in written
+        assert (dest_dir / "hooks" / "run.py").exists()
+
+    def test_nested_file_content_preserved(self, tmp_path: Path) -> None:
+        skill = _make_skill_with_subdir(tmp_path / "src")
+        dest_dir = tmp_path / "dest" / skill.name
+
+        adapter = ClaudeAdapter()
+        adapter.preprocess(skill, dest_dir)
+
+        original = (skill.local_path / "hooks" / "run.py").read_bytes()
+        copied = (dest_dir / "hooks" / "run.py").read_bytes()
+        assert original == copied
+
+    def test_creates_nested_subdirectories(self, tmp_path: Path) -> None:
+        skill = _make_skill_with_subdir(tmp_path / "src")
+        dest_dir = tmp_path / "new" / "nested" / "dest"
+
+        adapter = ClaudeAdapter()
+        adapter.preprocess(skill, dest_dir)
+
+        assert (dest_dir / "hooks").is_dir()
+        assert (dest_dir / "hooks" / "run.py").is_file()
 
     def test_overwrite_on_second_call(self, tmp_path: Path) -> None:
         skill = _make_skill(tmp_path / "src")

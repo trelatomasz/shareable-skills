@@ -265,6 +265,100 @@ class TestClean:
 # ---------------------------------------------------------------------------
 
 
+class TestSubdirectoryFiles:
+    def test_installs_nested_files(self, tmp_path: Path) -> None:
+        """Skills with subdirectory files (e.g. hooks/) are fully copied."""
+        import subprocess
+
+        repo = tmp_path / "repo_with_hooks"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-b", "main", str(repo)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(repo), "config", "user.email", "test@shskills.io"],
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "config", "user.name", "shskills-test"],
+            check=True, capture_output=True,
+        )
+
+        from tests.conftest import write_skill
+
+        skill_dir = write_skill(
+            repo / "SKILLS" / "common",
+            "prompt_skill",
+            extra_files={"hooks/run.py": "print('hello from hook')"},
+        )
+
+        subprocess.run(["git", "-C", str(repo), "add", "."], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-m", "add skill with hooks"],
+            check=True, capture_output=True,
+        )
+
+        dest = tmp_path / ".claude" / "skills"
+        result = install(url=f"file://{repo}", agent="claude", dest=dest)
+
+        assert not result.errors
+        assert len(result.installed) == 1
+        assert (dest / "common__prompt_skill" / "SKILL.md").exists()
+        assert (dest / "common__prompt_skill" / "hooks" / "run.py").exists()
+        assert (
+            (dest / "common__prompt_skill" / "hooks" / "run.py").read_text()
+            == "print('hello from hook')"
+        )
+
+    def test_nested_files_in_manifest_sha(self, tmp_path: Path) -> None:
+        """Manifest SHA-256 covers subdirectory files so changes are detected."""
+        import subprocess
+
+        repo = tmp_path / "repo_sha"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-b", "main", str(repo)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(repo), "config", "user.email", "test@shskills.io"],
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "config", "user.name", "shskills-test"],
+            check=True, capture_output=True,
+        )
+
+        from tests.conftest import write_skill
+
+        write_skill(
+            repo / "SKILLS",
+            "hook_skill",
+            extra_files={"hooks/run.py": "v1"},
+        )
+        subprocess.run(["git", "-C", str(repo), "add", "."], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-m", "v1"],
+            check=True, capture_output=True,
+        )
+
+        dest = tmp_path / "dest"
+        install(url=f"file://{repo}", agent="claude", dest=dest)
+        sha1 = read_manifest(dest).skills["hook_skill"].content_sha256  # type: ignore[union-attr]
+
+        # Modify the nested file in source
+        hook_file = repo / "SKILLS" / "hook_skill" / "hooks" / "run.py"
+        hook_file.write_text("v2")
+        subprocess.run(["git", "-C", str(repo), "add", "."], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-m", "v2"],
+            check=True, capture_output=True,
+        )
+
+        result = install(url=f"file://{repo}", agent="claude", dest=dest)
+        assert "hook_skill" in result.conflicts
+
+        result2 = install(url=f"file://{repo}", agent="claude", dest=dest, force=True)
+        assert "hook_skill" in result2.updated
+        sha2 = read_manifest(dest).skills["hook_skill"].content_sha256  # type: ignore[union-attr]
+        assert sha1 != sha2
+
+
 class TestLayoutStructure:
     def test_directory_layout(self, git_skills_repo: Path, tmp_path: Path) -> None:
         """Full structural verification of the installation layout."""

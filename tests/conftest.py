@@ -31,7 +31,9 @@ def write_skill(parent: Path, name: str, extra_files: dict[str, str] | None = No
     skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "SKILL.md").write_text(SKILL_MD.format(name=name), encoding="utf-8")
     for filename, content in (extra_files or {}).items():
-        (skill_dir / filename).write_text(content, encoding="utf-8")
+        file_path = skill_dir / filename
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content, encoding="utf-8")
     return skill_dir
 
 

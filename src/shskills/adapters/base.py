@@ -31,9 +31,10 @@ class AgentAdapter(ABC):
         """
         dest_dir.mkdir(parents=True, exist_ok=True)
         written: list[str] = []
-        for filename in skill.files:
-            src = skill.local_path / filename
-            dst = dest_dir / filename
+        for rel_path in skill.files:
+            src = skill.local_path / rel_path
+            dst = dest_dir / rel_path
+            dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(str(src), str(dst))
-            written.append(filename)
+            written.append(rel_path)
         return written
