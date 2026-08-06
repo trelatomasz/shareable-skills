@@ -34,7 +34,15 @@ class TestVersionFlag:
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
         assert __version__ in result.output
-        assert "shskills" in result.output
+        assert "shskill" in result.output
+
+    def test_install_self_bootstraps_agent_skills(self, tmp_path: Path) -> None:
+        with patch("pathlib.Path.cwd", return_value=tmp_path):
+            result = runner.invoke(app, ["--install", "self"])
+
+        assert result.exit_code == 0
+        assert (tmp_path / ".claude/skills/shskill/SKILL.md").is_file()
+        assert (tmp_path / ".codex/skills/shskill/SKILL.md").is_file()
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +72,29 @@ class TestInstallCommand:
             )
         assert result.exit_code == 0
         assert "installed" in result.output
+
+    def test_skill_name_is_passed_through(self, tmp_path: Path) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_install(**kwargs: object) -> InstallResult:
+            captured.update(kwargs)
+            return InstallResult(installed=["learning-session"])
+
+        with patch("shskills.core.installer.install", side_effect=fake_install):
+            result = runner.invoke(
+                app,
+                [
+                    "install",
+                    "learning-session",
+                    "--url",
+                    "https://github.com/x/y",
+                    "--dest",
+                    str(tmp_path),
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert captured["skills"] == ("learning-session",)
 
     def test_dry_run_flag_passes_through(self, tmp_path: Path) -> None:
         mock_result = InstallResult(installed=["skill_a"])

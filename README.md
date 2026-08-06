@@ -17,6 +17,80 @@
 ```bash
 pip install shskills
 
+# Teach every supported coding agent in this project how to use shskill
+shskill --install self
+
+# Install one skill by name; no SKILLS/ path knowledge required
+shskill install learning-session --url https://github.com/org/repo --agent claude
+
+# Install the list declared in pyproject.toml
+shskill sync
+```
+
+For local development, use an editable source install so every source change is visible
+immediately:
+
+```bash
+pip install -e /path/to/shskills
+# or add an editable path source with uv in the consuming project
+```
+
+The original plural `shskills` command remains available as a compatibility alias.
+
+### Brand-new project workflow
+
+Run these commands from the new project's root:
+
+```bash
+# Published package
+python -m pip install shskills
+
+# Local source checkout: edits become visible immediately
+python -m pip install -e /path/to/shskills
+
+# Install shskill's own instructions for supported coding agents
+shskill --install self
+```
+
+Restart the active coding agent after installing the self skill. You can then ask it:
+
+> Install skill `learning-session` from `https://github.com/org/skills-repo`.
+
+The agent uses:
+
+```bash
+shskill install learning-session \
+  --url https://github.com/org/skills-repo \
+  --agent claude
+```
+
+Named installation is project-local. The example above writes
+`.claude/skills/learning-session/`; it does not modify a user-global skills directory.
+
+### Minimal project configuration
+
+```toml
+[tool.shskill]
+url = "https://github.com/org/skills-repo.git"
+agent = "claude"
+skills = ["learning-session", "welcome-note"]
+```
+
+Then run `shskill sync`. Add `ref = "v1.2.0"` only when the project needs a pinned branch,
+tag, or commit. One source per project is intentionally supported to keep configuration
+obvious.
+
+Use this lifecycle after cloning or editing the requirement list:
+
+```bash
+shskill sync
+shskill doctor --agent claude
+```
+
+### Existing all-skills flow
+
+```bash
+
 # Install all skills for Claude
 shskills install --url https://github.com/org/repo --agent claude
 
@@ -50,7 +124,7 @@ pipx install shskills
 Fetch and install skills from a remote repository.
 
 ```
-shskills install [OPTIONS]
+shskill install [SKILL_NAME_OR_SOURCE_PATH] [OPTIONS]
 
 Options:
   --url       -u  TEXT    Git repository URL  [required]
@@ -64,6 +138,10 @@ Options:
   --strict                Abort on any conflict
   --verbose   -v          Show detailed per-skill progress
 ```
+
+When a skill name occurs in more than one group, the command reports the matching source
+paths. Re-run with one of those paths, for example `shskill install
+common/learning-session --url <repo>`.
 
 **Examples:**
 
@@ -94,6 +172,33 @@ shskills install --url https://github.com/org/skills-repo --agent claude --clean
 ```
 
 ---
+
+### `--install self`
+
+Install the bundled `shskill` agent instructions into the current project:
+
+```bash
+shskill --install self
+```
+
+This creates `shskill/SKILL.md` under each supported project-local agent directory:
+`.claude/skills/`, `.codex/skills/`, `.gemini/skills/`, and `.opencode/skills/`. Restart
+active coding agents afterward so they discover the new skill.
+
+### `sync`
+
+Read `[tool.shskill]` from `pyproject.toml` and install every listed skill:
+
+```bash
+shskill sync
+shskill sync --dry-run
+shskill sync --force
+shskill sync --clean
+```
+
+`--force` replaces locally modified managed skills. `--clean` also removes skills recorded
+in the same manifest but omitted from the current requirement list. Neither option is used
+implicitly.
 
 ### `list`
 
@@ -182,11 +287,13 @@ The destination path is always relative to the current working directory (your p
 
 ### Installed path structure
 
-Skills are installed preserving their path relative to the `--subpath` root:
+Named installs use the skill directory's leaf name. Bulk installs flatten source groups
+with `__`; `--subpath` makes that source subtree the destination root:
 
 | Invocation | Source path | Installed at |
 |---|---|---|
-| _(no subpath)_ | `SKILLS/aws/scale_up` | `<dest>/aws/scale_up/` |
+| `install scale_up` | `SKILLS/aws/scale_up` | `<dest>/scale_up/` |
+| _(no name or subpath)_ | `SKILLS/aws/scale_up` | `<dest>/aws__scale_up/` |
 | `--subpath aws` | `SKILLS/aws/scale_up` | `<dest>/scale_up/` |
 | `--subpath aws/scale_up` | `SKILLS/aws/scale_up` | `<dest>/scale_up/` |
 

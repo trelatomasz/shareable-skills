@@ -9,8 +9,8 @@ import pytest
 
 from shskills.adapters.claude import ClaudeAdapter
 from shskills.config import resolve_dest
-from shskills.core.installer import build_plan, execute_plan
-from shskills.exceptions import ConfigError
+from shskills.core.installer import build_plan, execute_plan, select_requested_skills
+from shskills.exceptions import ConfigError, InstallError
 from shskills.models import (
     InstallActionKind,
     InstallResult,
@@ -78,6 +78,43 @@ def _make_manifest(dest: Path, skills: dict[str, str] | None = None) -> Manifest
             m, dest_rel, dest_rel, dest_rel, str(dest / dest_rel), sha, ["SKILL.md"]
         )
     return m
+
+
+class TestSelectRequestedSkills:
+    def test_selects_by_leaf_name(self, tmp_path: Path) -> None:
+        first = _make_skill(tmp_path / "one", "learning-session")
+        second = _make_skill(tmp_path / "two", "welcome-note")
+
+        selected = select_requested_skills([first, second], ["learning-session"])
+
+        assert len(selected) == 1
+        assert selected[0].rel_path == "learning-session"
+        assert selected[0].source_rel == "group/learning-session"
+
+    def test_exact_source_path_disambiguates(self, tmp_path: Path) -> None:
+        common = _make_skill(tmp_path / "common", "welcome-note")
+        aws = _make_skill(tmp_path / "aws", "welcome-note")
+        common.source_rel = "common/welcome-note"
+        aws.source_rel = "aws/welcome-note"
+
+        selected = select_requested_skills([common, aws], ["aws/welcome-note"])
+
+        assert len(selected) == 1
+        assert selected[0].rel_path == "welcome-note"
+        assert selected[0].source_rel == "aws/welcome-note"
+
+    def test_ambiguous_name_fails_with_source_paths(self, tmp_path: Path) -> None:
+        common = _make_skill(tmp_path / "common", "welcome-note")
+        aws = _make_skill(tmp_path / "aws", "welcome-note")
+        common.source_rel = "common/welcome-note"
+        aws.source_rel = "aws/welcome-note"
+
+        with pytest.raises(InstallError, match="common/welcome-note, aws/welcome-note"):
+            select_requested_skills([common, aws], ["welcome-note"])
+
+    def test_missing_name_fails(self, tmp_path: Path) -> None:
+        with pytest.raises(InstallError, match="missing"):
+            select_requested_skills([_make_skill(tmp_path)], ["missing"])
 
 
 # ---------------------------------------------------------------------------

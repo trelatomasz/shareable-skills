@@ -17,7 +17,7 @@ from shskills.config import DEFAULT_REF, KNOWN_AGENTS
 from shskills.exceptions import ConfigError, FetchError, InstallError, ManifestError, ShskillsError
 
 app = typer.Typer(
-    name="shskills",
+    name="shskill",
     help="Install agent skills from GitHub repositories.",
     no_args_is_help=True,
     pretty_exceptions_enable=False,
@@ -71,6 +71,10 @@ def _setup_logging(verbose: bool) -> None:
 @app.command("install")
 def cmd_install(
     url: Annotated[str, typer.Option("--url", "-u", help="Git repository URL.")],
+    skill: Annotated[
+        str | None,
+        typer.Argument(help="Skill name or source path. Omit to install all skills."),
+    ] = None,
     agent: _AgentArg = "claude",
     subpath: Annotated[
         str | None,
@@ -132,6 +136,7 @@ def cmd_install(
             clean=clean,
             strict=strict,
             verbose=verbose,
+            skills=(skill,) if skill else None,
         )
     except (ConfigError, FetchError, InstallError, ManifestError) as exc:
         err_console.print(f"Error: {exc}")
@@ -180,6 +185,74 @@ def cmd_install(
 
     if result.errors or (strict and result.conflicts):
         raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# sync
+# ---------------------------------------------------------------------------
+
+
+@app.command("sync")
+def cmd_sync(
+    config: Annotated[
+        Path,
+        typer.Option("--config", help="pyproject.toml containing [tool.shskill]."),
+    ] = Path("pyproject.toml"),
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Plan without writing any files."),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Overwrite skills whose content has changed."),
+    ] = False,
+    clean: Annotated[
+        bool,
+        typer.Option("--clean", help="Remove managed skills not listed in the configuration."),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed progress."),
+    ] = False,
+) -> None:
+    """Install the skills declared in [tool.shskill]."""
+    _setup_logging(verbose)
+
+    from shskills.core.installer import install
+    from shskills.project_config import load_project_config
+
+    try:
+        project = load_project_config(config)
+        result = install(
+            url=project.url,
+            agent=project.agent,
+            ref=project.ref,
+            dry_run=dry_run,
+            force=force,
+            clean=clean,
+            verbose=verbose,
+            skills=project.skills,
+        )
+    except (ConfigError, FetchError, InstallError, ManifestError, ShskillsError) as exc:
+        err_console.print(f"Error: {exc}")
+        raise typer.Exit(code=1) from exc
+
+    changed = result.installed + result.updated
+    for skill_name in changed:
+        rprint(f"[green]synced[/green]  {skill_name}")
+    for skill_name in result.skipped:
+        rprint(f"[dim]current[/dim]  {skill_name}")
+    for skill_name in result.conflicts:
+        rprint(f"[red]conflict[/red]  {skill_name}  (use --force to overwrite)")
+    for skill_name in result.cleaned:
+        rprint(f"[yellow]cleaned[/yellow]  {skill_name}")
+    for error in result.errors:
+        rprint(f"[bold red]error[/bold red]  {error}")
+
+    if result.errors or result.conflicts:
+        raise typer.Exit(code=1)
+    if not result.total_changes:
+        rprint("[dim]All declared skills are up-to-date.[/dim]")
 
 
 # ---------------------------------------------------------------------------
@@ -404,13 +477,27 @@ def cmd_uninstall(
 
 @app.callback(invoke_without_command=True)
 def _version_callback(
+    install_target: Annotated[
+        str | None,
+        typer.Option("--install", help="Install a bundled component (currently: self)."),
+    ] = None,
     version: Annotated[
         bool,
         typer.Option("--version", "-V", help="Print version and exit.", is_eager=True),
     ] = False,
 ) -> None:
+    if install_target is not None:
+        if install_target != "self":
+            err_console.print("Error: --install currently accepts only 'self'.")
+            raise typer.Exit(code=1)
+        from shskills.self_install import install_self
+
+        for path in install_self(Path.cwd()):
+            rprint(f"[green]installed[/green]  {path}")
+        rprint("[dim]Restart active coding agents so they discover the new skill.[/dim]")
+        raise typer.Exit()
     if version:
-        rprint(f"shskills {__version__}")
+        rprint(f"shskill {__version__}")
         raise typer.Exit()
 
 

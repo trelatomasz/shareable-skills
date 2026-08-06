@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import shutil  # used by execute_plan --clean path
+from collections.abc import Sequence
 from pathlib import Path
 
 from shskills.adapters.base import AgentAdapter
@@ -31,6 +32,53 @@ from shskills.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Requested-skill selection
+# ---------------------------------------------------------------------------
+
+
+def select_requested_skills(
+    discovered: list[SkillInfo], requested_skills: Sequence[str] | None
+) -> list[SkillInfo]:
+    """Resolve user-facing names or exact source paths without guessing."""
+    if not requested_skills:
+        return discovered
+
+    selected: list[SkillInfo] = []
+    for requested in requested_skills:
+        exact_path = [item for item in discovered if item.source_rel == requested]
+        matches = exact_path or [
+            item
+            for item in discovered
+            if requested
+            in {
+                item.frontmatter.name,
+                Path(item.source_rel).name,
+                item.rel_path,
+            }
+        ]
+        if not matches:
+            raise InstallError(f"Skill '{requested}' was not found")
+        if len(matches) > 1:
+            paths = ", ".join(item.source_rel for item in matches)
+            raise InstallError(
+                f"Skill name '{requested}' is ambiguous: {paths}. "
+                "Use one of those source paths."
+            )
+        destination_name = Path(matches[0].source_rel).name
+        if any(item.rel_path == destination_name for item in selected):
+            raise InstallError(
+                f"Requested skills would both install as '{destination_name}'. "
+                "Install them separately with --subpath or distinct --dest values."
+            )
+        selected.append(
+            matches[0].model_copy(
+                update={"name": destination_name, "rel_path": destination_name}
+            )
+        )
+    return selected
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +249,7 @@ def install(
     clean: bool = False,
     strict: bool = False,
     verbose: bool = False,
+    skills: Sequence[str] | None = None,
 ) -> InstallResult:
     """Fetch and install skills from a remote repository.
 
@@ -216,6 +265,7 @@ def install(
         clean:    Remove orphaned skills that are no longer in the source.
         strict:   Abort on any conflict instead of warning.
         verbose:  Emit INFO-level log messages for skipped skills too.
+        skills:   Optional skill names or source paths to install.
 
     Returns:
         InstallResult summarising what happened.
@@ -235,9 +285,14 @@ def install(
     existing_manifest = read_manifest(dest_path)
 
     with fetch_skills_tree(source) as skills_root:
-        skills = discover_skills(skills_root, source.subpath)
+        discovered = discover_skills(skills_root, source.subpath)
 
-        if not skills:
+        try:
+            discovered = select_requested_skills(discovered, skills)
+        except InstallError as exc:
+            raise InstallError(f"{exc} in '{url}'") from exc
+
+        if not discovered:
             logger.warning(
                 "No skills found at '%s/%s' in '%s'",
                 "SKILLS",
@@ -247,7 +302,7 @@ def install(
             return InstallResult()
 
         plan = build_plan(
-            skills=skills,
+            skills=discovered,
             source=source,
             agent=agent,
             dest=dest_path,
