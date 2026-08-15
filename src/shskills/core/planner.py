@@ -63,7 +63,7 @@ def _source_rel(rel: str, subpath: str | None) -> str:
     return rel
 
 
-def discover_skills(skills_root: Path, subpath: str | None) -> list[SkillInfo]:
+def discover_skills(skills_root: Path, subpath: str | None = None) -> list[SkillInfo]:
     """Walk *skills_root* and return one SkillInfo per discovered skill.
 
     A skill is any directory that contains a ``SKILL.md`` file.

@@ -1,5 +1,6 @@
 """Agent adapters for shskills."""
 
+from shskills.adapters.antigravity import AntigravityAdapter
 from shskills.adapters.base import AgentAdapter
 from shskills.adapters.claude import ClaudeAdapter
 from shskills.adapters.codex import CodexAdapter
@@ -8,6 +9,7 @@ from shskills.adapters.gemini import GeminiAdapter
 from shskills.adapters.opencode import OpenCodeAdapter
 
 _REGISTRY: dict[str, type[AgentAdapter]] = {
+    "antigravity": AntigravityAdapter,
     "claude": ClaudeAdapter,
     "codex": CodexAdapter,
     "gemini": GeminiAdapter,
@@ -30,6 +32,7 @@ def get_adapter(agent: str) -> AgentAdapter:
 
 __all__ = [
     "AgentAdapter",
+    "AntigravityAdapter",
     "ClaudeAdapter",
     "CodexAdapter",
     "GeminiAdapter",

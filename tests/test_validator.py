@@ -157,7 +157,10 @@ class TestAssertNoSymlinks:
         target = tmp_path / "real.txt"
         target.write_text("hi")
         link = d / "link.md"
-        link.symlink_to(target)
+        try:
+            link.symlink_to(target)
+        except OSError:
+            pytest.skip("Symlinks not supported on this platform/environment")
 
         with pytest.raises(ValidationError, match="Symlink"):
             assert_no_symlinks(d)
@@ -187,7 +190,10 @@ class TestListSkillFiles:
         real = tmp_path / "real.txt"
         real.write_text("hi")
         (d / "SKILL.md").write_text("")
-        (d / "link.txt").symlink_to(real)
+        try:
+            (d / "link.txt").symlink_to(real)
+        except OSError:
+            pytest.skip("Symlinks not supported on this platform/environment")
 
         files = list_skill_files(d)
         assert "link.txt" not in files
@@ -346,7 +352,10 @@ class TestValidateSkillDir:
         real = tmp_path / "real.md"
         real.write_text("hi")
         (d / "SKILL.md").write_text(VALID_FM)
-        (d / "link.md").symlink_to(real)
+        try:
+            (d / "link.md").symlink_to(real)
+        except OSError:
+            pytest.skip("Symlinks not supported on this platform/environment")
 
         with pytest.raises(ValidationError, match="Symlink"):
             validate_skill_dir(d)

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 # ---------------------------------------------------------------------------
 # Source / discovery
@@ -14,9 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class SkillSource(BaseModel):
-    """Identifies a remote skills tree."""
+    """Identifies a remote or local skills tree."""
 
-    url: str
+    url: str | None = None
+    path: str | None = None
     ref: str = "main"
     subpath: str | None = None
 
@@ -136,13 +137,33 @@ class InstallResult(BaseModel):
     errors: list[str] = []
     cleaned: list[str] = []
 
+    @computed_field
     @property
     def success(self) -> bool:
         return not self.errors and not self.conflicts
 
+    @computed_field
     @property
     def total_changes(self) -> int:
         return len(self.installed) + len(self.updated) + len(self.cleaned)
+
+
+class ExportResult(BaseModel):
+    exported: list[str] = []
+    updated: list[str] = []
+    skipped: list[str] = []
+    conflicts: list[str] = []
+    errors: list[str] = []
+
+    @computed_field
+    @property
+    def success(self) -> bool:
+        return not self.errors and not self.conflicts
+
+    @computed_field
+    @property
+    def total_changes(self) -> int:
+        return len(self.exported) + len(self.updated)
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +190,7 @@ class DoctorReport(BaseModel):
     issues: list[DoctorIssue] = []
     installed_count: int = 0
 
+    @computed_field
     @property
     def healthy(self) -> bool:
         return not any(i.severity == DoctorSeverity.ERROR for i in self.issues)

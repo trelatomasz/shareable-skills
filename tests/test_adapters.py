@@ -171,8 +171,18 @@ class TestAdapterPreprocess:
 # ---------------------------------------------------------------------------
 
 
+from shskills.adapters.antigravity import AntigravityAdapter
+from shskills.adapters.base import AgentAdapter
+from shskills.adapters.claude import ClaudeAdapter
+from shskills.adapters.codex import CodexAdapter
+from shskills.adapters.custom import CustomAdapter
+from shskills.adapters.gemini import GeminiAdapter
+from shskills.adapters.opencode import OpenCodeAdapter
+
+
 class TestAgentNames:
     def test_all_names(self) -> None:
+        assert AntigravityAdapter().agent_name == "antigravity"
         assert ClaudeAdapter().agent_name == "claude"
         assert CodexAdapter().agent_name == "codex"
         assert GeminiAdapter().agent_name == "gemini"

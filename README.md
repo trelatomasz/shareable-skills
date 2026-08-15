@@ -115,20 +115,42 @@ uv add shskills
 pipx install shskills
 ```
 
+# Install a specific group
+shskills install --url https://github.com/org/repo --agent claude --subpath aws
+
+# Install a single skill
+shskills install --url https://github.com/org/repo --agent claude --subpath aws/scale_up_service
+```
+
+---
+
+## Installation
+
+Requires Python >= 3.11 and Git >= 2.28.
+
+```bash
+pip install shskills
+# or
+uv add shskills
+# or
+pipx install shskills
+```
+
 ---
 
 ## CLI reference
 
 ### `install`
 
-Fetch and install skills from a remote repository.
+Fetch and install skills from a remote repository or a local directory.
 
 ```
 shskill install [SKILL_NAME_OR_SOURCE_PATH] [OPTIONS]
 
 Options:
-  --url       -u  TEXT    Git repository URL  [required]
-  --agent     -a  TEXT    Target agent: claude, codex, gemini, opencode, custom
+  --url       -u  TEXT    Git repository URL (required if --path is not used)
+  --path      -p  PATH    Local directory containing skills (e.g. SKILLS/)
+  --agent     -a  TEXT    Target agent: antigravity, claude, codex, gemini, opencode, custom
   --subpath   -s  TEXT    Path relative to SKILLS/ to install
   --ref       -r  TEXT    Branch, tag, or commit SHA  [default: main]
   --dest      -d  PATH    Override the default destination directory
@@ -139,11 +161,21 @@ Options:
   --verbose   -v          Show detailed per-skill progress
 ```
 
+### `export`
+
+Read existing skills from an agent's directory and store them in a generic `SKILLS` folder:
+
+```bash
+# Export all skills from Codex configuration into generic SKILLS/
+shskill export --agent codex --dest SKILLS
+
+# Export a single skill with force overwrite
+shskill export atlas --agent codex --dest SKILLS --force
+```
+
 When a skill name occurs in more than one group, the command reports the matching source
 paths. Re-run with one of those paths, for example `shskill install
 common/learning-session --url <repo>`.
-
-**Examples:**
 
 ```bash
 # Install all skills, Claude adapter

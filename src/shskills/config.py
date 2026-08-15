@@ -6,6 +6,7 @@ from pathlib import Path
 
 # Mapping from agent name to default installation destination (relative to cwd).
 AGENT_DEST_MAP: dict[str, str] = {
+    "antigravity": ".agents/skills",
     "claude": ".claude/skills",
     "codex": ".codex/skills",
     "gemini": ".gemini/skills",
@@ -44,4 +45,20 @@ def resolve_dest(agent: str, dest: str | Path | None) -> Path:
     if agent not in AGENT_DEST_MAP:
         known = ", ".join(sorted(KNOWN_AGENTS))
         raise ConfigError(f"Unknown agent '{agent}'. Known agents: {known}")
-    return Path(AGENT_DEST_MAP[agent])
+
+    default_str = AGENT_DEST_MAP[agent]
+    default_path = Path(default_str)
+    # If the exact path does not exist, check if a case-insensitive variant exists
+    if not default_path.exists():
+        parts = default_path.parts
+        if parts:
+            first = parts[0]
+            try:
+                for child in Path.cwd().iterdir() if Path.cwd().exists() else []:
+                    if child.name.lower() == first.lower() and child.is_dir():
+                        candidate = child.joinpath(*parts[1:])
+                        if candidate.is_dir():
+                            return candidate
+            except (OSError, PermissionError):
+                pass
+    return default_path

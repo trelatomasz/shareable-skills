@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "shskills"
-version = "0.1.4"
+version = "0.2.0"
 description = "Install agent skills from GitHub repositories"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "shskills contributors" }]
-keywords = ["ai", "agents", "skills", "cli", "claude", "codex", "gemini"]
+keywords = ["ai", "agents", "skills", "cli", "claude", "codex", "gemini", "antigravity"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",

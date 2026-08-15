@@ -65,13 +65,16 @@ class TestSparseTarget:
 # ---------------------------------------------------------------------------
 
 
+import sys
+
+
 class TestRun:
     def test_raises_fetch_error_on_nonzero_exit(self) -> None:
         with pytest.raises(FetchError, match="Command failed"):
-            _run(["false"])  # 'false' always exits 1
+            _run([sys.executable, "-c", "import sys; sys.exit(1)"])
 
     def test_success_returns_completed_process(self) -> None:
-        result = _run(["true"])
+        result = _run([sys.executable, "-c", "import sys; sys.exit(0)"])
         assert result.returncode == 0
 
     def test_error_includes_command(self) -> None:

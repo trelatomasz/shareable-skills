@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import logging
 import shutil  # used by execute_plan --clean path
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from shskills.project_config import ProjectConfig
 
 from shskills.adapters.base import AgentAdapter
 from shskills.config import DEFAULT_REF, resolve_dest
@@ -16,8 +21,10 @@ from shskills.core.manifest import (
     update_manifest_skill,
     write_manifest,
 )
+from shskills.core.exporter import _get_skill_mtime
 from shskills.core.planner import discover_skills
-from shskills.exceptions import InstallError
+from shskills.core.validator import compute_skill_sha256
+from shskills.exceptions import ConfigError, InstallError
 from shskills.models import (
     DoctorIssue,
     DoctorReport,
@@ -39,39 +46,38 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def _dest_leaf(s: SkillInfo) -> str:
+    return Path(s.rel_path).name
+
+
 def select_requested_skills(
-    discovered: list[SkillInfo], requested_skills: Sequence[str] | None
+    discovered: list[SkillInfo],
+    requested: Sequence[str] | None,
 ) -> list[SkillInfo]:
-    """Resolve user-facing names or exact source paths without guessing."""
-    if not requested_skills:
+    """Filter *discovered* to only those named in *requested*."""
+    if not requested:
         return discovered
 
     selected: list[SkillInfo] = []
-    for requested in requested_skills:
-        exact_path = [item for item in discovered if item.source_rel == requested]
-        matches = exact_path or [
-            item
-            for item in discovered
-            if requested
-            in {
-                item.frontmatter.name,
-                Path(item.source_rel).name,
-                item.rel_path,
-            }
+    for req in requested:
+        req_clean = req.strip().rstrip("/")
+        matches = [
+            s
+            for s in discovered
+            if s.name == req_clean
+            or s.rel_path == req_clean
+            or s.source_rel == req_clean
+            or _dest_leaf(s) == req_clean
         ]
         if not matches:
-            raise InstallError(f"Skill '{requested}' was not found")
+            raise InstallError(f"Requested skill '{req}' not found")
+
+        destination_name = Path(req_clean).name if "/" in req_clean else matches[0].name
         if len(matches) > 1:
-            paths = ", ".join(item.source_rel for item in matches)
+            sources = ", ".join(m.source_rel for m in matches)
             raise InstallError(
-                f"Skill name '{requested}' is ambiguous: {paths}. "
+                f"Skill name '{req}' is ambiguous: {sources}. "
                 "Use one of those source paths."
-            )
-        destination_name = Path(matches[0].source_rel).name
-        if any(item.rel_path == destination_name for item in selected):
-            raise InstallError(
-                f"Requested skills would both install as '{destination_name}'. "
-                "Install them separately with --subpath or distinct --dest values."
             )
         selected.append(
             matches[0].model_copy(
@@ -89,19 +95,54 @@ def select_requested_skills(
 def _action_for_skill(
     skill: SkillInfo,
     dest_rel: str,
+    dest: Path,
     manifest: Manifest | None,
     force: bool,
 ) -> InstallAction:
-    """Determine the InstallAction for a single skill against the current manifest."""
+    """Determine the InstallAction for a single skill against the destination and manifest."""
+    dest_dir = dest / dest_rel
+
     if manifest is None or dest_rel not in manifest.skills:
+        if not dest_dir.exists():
+            return InstallAction(
+                skill=skill,
+                dest_rel=dest_rel,
+                kind=InstallActionKind.INSTALL,
+            )
+
+    existing = manifest.skills.get(dest_rel) if manifest else None
+
+    # If dest_dir doesn't exist on disk, rely on manifest record
+    if not dest_dir.exists():
+        if existing and existing.content_sha256 == skill.content_sha256:
+            return InstallAction(
+                skill=skill,
+                dest_rel=dest_rel,
+                kind=InstallActionKind.SKIP,
+                reason="already up-to-date",
+            )
+        if force:
+            return InstallAction(
+                skill=skill,
+                dest_rel=dest_rel,
+                kind=InstallActionKind.UPDATE,
+                reason="hash changed, --force specified",
+            )
         return InstallAction(
             skill=skill,
             dest_rel=dest_rel,
-            kind=InstallActionKind.INSTALL,
+            kind=InstallActionKind.CONFLICT,
+            reason="hash changed; use --force to overwrite",
         )
 
-    existing = manifest.skills[dest_rel]
-    if existing.content_sha256 == skill.content_sha256:
+    # dest_dir exists on disk: compute disk sha
+    try:
+        dest_sha = compute_skill_sha256(dest_dir, skill.files)
+    except Exception:
+        dest_sha = ""
+
+    # If content on disk is identical to source, it's up to date
+    if dest_sha == skill.content_sha256:
         return InstallAction(
             skill=skill,
             dest_rel=dest_rel,
@@ -115,6 +156,17 @@ def _action_for_skill(
             dest_rel=dest_rel,
             kind=InstallActionKind.UPDATE,
             reason="hash changed, --force specified",
+        )
+
+    dest_mtime = _get_skill_mtime(dest_dir)
+    src_mtime = _get_skill_mtime(skill.local_path)
+
+    if dest_mtime > src_mtime:
+        return InstallAction(
+            skill=skill,
+            dest_rel=dest_rel,
+            kind=InstallActionKind.CONFLICT,
+            reason="local changes in agent directory are newer than source (use --force or --export-first)",
         )
 
     return InstallAction(
@@ -139,7 +191,7 @@ def build_plan(
     """Combine discovered skills + existing manifest into an InstallPlan."""
     actions: list[InstallAction] = []
     for skill in skills:
-        action = _action_for_skill(skill, skill.rel_path, manifest, force)
+        action = _action_for_skill(skill, skill.rel_path, dest, manifest, force)
         actions.append(action)
 
     return InstallPlan(
@@ -239,8 +291,9 @@ def execute_plan(
 
 
 def install(
-    url: str,
     agent: str,
+    url: str | None = None,
+    path: str | Path | None = None,
     subpath: str | None = None,
     ref: str = DEFAULT_REF,
     dest: Path | None = None,
@@ -251,13 +304,14 @@ def install(
     verbose: bool = False,
     skills: Sequence[str] | None = None,
 ) -> InstallResult:
-    """Fetch and install skills from a remote repository.
+    """Fetch and install skills from a remote repository or a local directory.
 
     Args:
-        url:      Git repository URL.
-        agent:    Target agent (``claude``, ``codex``, ``gemini``, ``opencode``,
-                  or ``custom``).
-        subpath:  Optional path filter relative to ``SKILLS/``.
+        agent:    Target agent (``antigravity``, ``claude``, ``codex``, ``gemini``,
+                  ``opencode``, or ``custom``).
+        url:      Git repository URL (if fetching remotely).
+        path:     Local path containing skills (if installing locally).
+        subpath:  Optional path filter relative to ``SKILLS/`` or the root.
         ref:      Branch, tag, or commit SHA (default: ``main``).
         dest:     Override the default destination directory.
         dry_run:  Plan but do not write any files.
@@ -271,18 +325,71 @@ def install(
         InstallResult summarising what happened.
 
     Raises:
-        ConfigError:   Invalid agent or missing --dest for custom agent.
+        ConfigError:   Invalid agent, missing --dest for custom agent, or neither url nor path.
         FetchError:    Remote repository could not be fetched.
         InstallError:  strict=True and conflicts were detected.
         ManifestError: Manifest could not be read or written.
     """
     from shskills.adapters import get_adapter
 
-    dest_path = resolve_dest(agent, dest)
-    source = SkillSource(url=url, ref=ref, subpath=subpath)
-    adapter = get_adapter(agent)
+    if not url and not path:
+        raise ConfigError("Either --url or --path must be provided")
 
+    dest_path = resolve_dest(agent, dest)
+    adapter = get_adapter(agent)
     existing_manifest = read_manifest(dest_path)
+
+    if path is not None:
+        local_dir = Path(path)
+        if not local_dir.exists() or not local_dir.is_dir():
+            raise ConfigError(f"Local skills path does not exist or is not a directory: {local_dir}")
+        source = SkillSource(path=str(local_dir), ref=ref, subpath=subpath)
+
+        discovered = discover_skills(local_dir, subpath)
+        try:
+            discovered = select_requested_skills(discovered, skills)
+        except InstallError as exc:
+            raise InstallError(f"{exc} in '{local_dir}'") from exc
+
+        if not discovered:
+            logger.warning("No skills found in '%s'", local_dir)
+            return InstallResult()
+
+        plan = build_plan(
+            skills=discovered,
+            source=source,
+            agent=agent,
+            dest=dest_path,
+            manifest=existing_manifest,
+            force=force,
+            clean=clean,
+            strict=strict,
+            dry_run=dry_run,
+        )
+
+        conflict_keys = [a.dest_rel for a in plan.actions if a.kind == InstallActionKind.CONFLICT]
+        if strict and conflict_keys:
+            raise InstallError(
+                f"Strict mode: {len(conflict_keys)} conflict(s) detected: "
+                + ", ".join(conflict_keys)
+            )
+
+        working_manifest: Manifest = existing_manifest or Manifest(
+            agent=agent,
+            dest=str(dest_path),
+            source=source,
+        )
+        working_manifest.source = source
+
+        result = execute_plan(plan, working_manifest, adapter, verbose=verbose)
+
+        if not dry_run and (result.installed or result.updated or result.cleaned):
+            write_manifest(dest_path, working_manifest)
+
+        return result
+
+    assert url is not None
+    source = SkillSource(url=url, ref=ref, subpath=subpath)
 
     with fetch_skills_tree(source) as skills_root:
         discovered = discover_skills(skills_root, source.subpath)
@@ -320,13 +427,11 @@ def install(
                 + ", ".join(conflict_keys)
             )
 
-        # Prepare or create manifest
-        working_manifest: Manifest = existing_manifest or Manifest(
+        working_manifest = existing_manifest or Manifest(
             agent=agent,
             dest=str(dest_path),
             source=source,
         )
-        # Always update the source reference in the manifest
         working_manifest.source = source
 
         result = execute_plan(plan, working_manifest, adapter, verbose=verbose)
@@ -335,6 +440,163 @@ def install(
             write_manifest(dest_path, working_manifest)
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Public API: sync_project
+# ---------------------------------------------------------------------------
+
+
+def sync_project(
+    project: ProjectConfig,
+    dest: Path | None = None,
+    dry_run: bool = False,
+    force: bool = False,
+    clean: bool = False,
+    strict: bool = False,
+    export_first: bool = False,
+    verbose: bool = False,
+) -> InstallResult:
+    """Synchronise all skills declared in *project* across local and remote sources."""
+    from shskills.adapters import get_adapter
+    from shskills.core.exporter import export_skills
+    from shskills.project_config import parse_skill_spec
+
+    dest_path = resolve_dest(project.agent, dest)
+    adapter = get_adapter(project.agent)
+    existing_manifest = read_manifest(dest_path)
+
+    # If --export-first is requested, export newer local agent modifications to generic source
+    if export_first and not dry_run:
+        for spec in project.skills:
+            src, skill_name = parse_skill_spec(
+                spec,
+                default_path=project.path,
+                default_url=project.url,
+                default_ref=project.ref,
+            )
+            if not src.url and src.path and skill_name:
+                agent_skill_dir = dest_path / skill_name
+                if agent_skill_dir.is_dir():
+                    src_skill_dir = Path(src.path) / skill_name
+                    agent_mtime = _get_skill_mtime(agent_skill_dir)
+                    src_mtime = _get_skill_mtime(src_skill_dir) if src_skill_dir.exists() else 0.0
+                    if agent_mtime > src_mtime:
+                        export_skills(
+                            agent=project.agent,
+                            source=dest_path,
+                            dest=src.path,
+                            skills=[skill_name],
+                            force=True,
+                            verbose=verbose,
+                        )
+
+    # Parse and group skill specs
+    # Key: (is_url, url_or_path, ref, subpath)
+    sources_map: dict[tuple[bool, str, str, str | None], list[str] | None] = {}
+    for spec in project.skills:
+        src, skill_name = parse_skill_spec(
+            spec,
+            default_path=project.path,
+            default_url=project.url,
+            default_ref=project.ref,
+        )
+        is_url = bool(src.url)
+        loc = src.url if is_url else (src.path or "SKILLS")
+        key = (is_url, loc, src.ref, src.subpath)
+        if skill_name is None:
+            sources_map[key] = None
+        else:
+            current = sources_map.get(key)
+            if key not in sources_map:
+                sources_map[key] = [skill_name]
+            elif current is not None:
+                current.append(skill_name)
+
+    all_discovered: list[SkillInfo] = []
+
+    with tempfile.TemporaryDirectory(prefix="shskills-sync-") as tmpdir:
+        stage_dir = Path(tmpdir)
+
+        # Check if $shskills self-skill was requested
+        has_self_skill = False
+        for key, req_skills in list(sources_map.items()):
+            if req_skills and "$shskills" in req_skills:
+                has_self_skill = True
+                filtered_req = [r for r in req_skills if r != "$shskills"]
+                if filtered_req:
+                    sources_map[key] = filtered_req
+                else:
+                    del sources_map[key]
+
+        if has_self_skill:
+            from shskills.self_install import _self_skill_content
+            staged_self = stage_dir / "shskills"
+            staged_self.mkdir(parents=True, exist_ok=True)
+            (staged_self / "SKILL.md").write_text(_self_skill_content(), encoding="utf-8")
+            self_discovered = discover_skills(stage_dir)
+            all_discovered.extend([s for s in self_discovered if s.name == "shskills"])
+
+        for (is_url, loc, ref, subpath), req_skills in sources_map.items():
+            if not is_url:
+                local_dir = Path(loc)
+                if not local_dir.exists() or not local_dir.is_dir():
+                    raise ConfigError(
+                        f"Local skills path does not exist or is not a directory: {local_dir}"
+                    )
+                discovered = discover_skills(local_dir, subpath)
+                try:
+                    discovered = select_requested_skills(discovered, req_skills)
+                except InstallError as exc:
+                    raise InstallError(f"{exc} in '{local_dir}'") from exc
+                all_discovered.extend(discovered)
+            else:
+                src = SkillSource(url=loc, ref=ref, subpath=subpath)
+                with fetch_skills_tree(src) as skills_root:
+                    discovered = discover_skills(skills_root, subpath)
+                    try:
+                        discovered = select_requested_skills(discovered, req_skills)
+                    except InstallError as exc:
+                        raise InstallError(f"{exc} in '{loc}'") from exc
+                    for s in discovered:
+                        staged_path = stage_dir / s.name
+                        shutil.copytree(str(s.local_path), str(staged_path), dirs_exist_ok=True)
+                        all_discovered.append(s.model_copy(update={"local_path": staged_path}))
+
+        primary_source = SkillSource(path=project.path, url=project.url, ref=project.ref)
+
+        plan = build_plan(
+            skills=all_discovered,
+            source=primary_source,
+            agent=project.agent,
+            dest=dest_path,
+            manifest=existing_manifest,
+            force=force,
+            clean=clean,
+            strict=strict,
+            dry_run=dry_run,
+        )
+
+        conflict_keys = [a.dest_rel for a in plan.actions if a.kind == InstallActionKind.CONFLICT]
+        if strict and conflict_keys:
+            raise InstallError(
+                f"Strict mode: {len(conflict_keys)} conflict(s) detected: "
+                + ", ".join(conflict_keys)
+            )
+
+        working_manifest: Manifest = existing_manifest or Manifest(
+            agent=project.agent,
+            dest=str(dest_path),
+            source=primary_source,
+        )
+        working_manifest.source = primary_source
+
+        result = execute_plan(plan, working_manifest, adapter, verbose=verbose)
+
+        if not dry_run and (result.installed or result.updated or result.cleaned):
+            write_manifest(dest_path, working_manifest)
+
+        return result
 
 
 # ---------------------------------------------------------------------------

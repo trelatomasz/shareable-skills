@@ -58,7 +58,8 @@ _UNSAFE_SEGMENTS: frozenset[str] = frozenset({"", ".", ".."})
 
 def assert_path_safe(path: Path, label: str = "path") -> None:
     """Raise ValidationError if *path* contains unsafe segments or is absolute."""
-    if os.path.isabs(path):
+    path_str = str(path).replace("\\", "/")
+    if os.path.isabs(path) or path.is_absolute() or path_str.startswith("/"):
         raise ValidationError(f"Unsafe {label}: absolute path '{path}'")
     for part in path.parts:
         if part in _UNSAFE_SEGMENTS:

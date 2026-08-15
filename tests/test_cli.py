@@ -15,6 +15,7 @@ from shskills.models import (
     DoctorIssue,
     DoctorReport,
     DoctorSeverity,
+    ExportResult,
     InstalledSkill,
     InstallResult,
     SkillFrontmatter,
@@ -22,7 +23,6 @@ from shskills.models import (
 )
 
 runner = CliRunner()
-
 
 # ---------------------------------------------------------------------------
 # --version
@@ -36,13 +36,26 @@ class TestVersionFlag:
         assert __version__ in result.output
         assert "shskill" in result.output
 
+    def test_skill_link_option(self) -> None:
+        result = runner.invoke(app, ["--skill"])
+        assert result.exit_code == 0
+        assert "https://github.com/trelatomasz/shskills" in result.output
+
     def test_install_self_bootstraps_agent_skills(self, tmp_path: Path) -> None:
         with patch("pathlib.Path.cwd", return_value=tmp_path):
             result = runner.invoke(app, ["--install", "self"])
 
         assert result.exit_code == 0
-        assert (tmp_path / ".claude/skills/shskill/SKILL.md").is_file()
-        assert (tmp_path / ".codex/skills/shskill/SKILL.md").is_file()
+        assert (tmp_path / ".claude/skills/shskills/SKILL.md").is_file()
+        assert (tmp_path / ".agents/skills/shskills/SKILL.md").is_file()
+        assert (tmp_path / ".gemini/skills/shskills/SKILL.md").is_file()
+
+    def test_install_self_command(self, tmp_path: Path) -> None:
+        with patch("pathlib.Path.cwd", return_value=tmp_path):
+            result = runner.invoke(app, ["install", "self", "--agent", "antigravity"])
+
+        assert result.exit_code == 0
+        assert (tmp_path / ".agents/skills/shskills/SKILL.md").is_file()
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +307,8 @@ class TestInstalledCommand:
         assert "welcome_note" in result.output
 
 
+
+
 # ---------------------------------------------------------------------------
 # doctor
 # ---------------------------------------------------------------------------
@@ -330,3 +345,125 @@ class TestDoctorCommand:
             result = runner.invoke(app, ["doctor", "--agent", "claude", "--dest", str(tmp_path)])
         assert result.exit_code == 0
         assert "hash mismatch" in result.output
+
+
+# ---------------------------------------------------------------------------
+# export
+# ---------------------------------------------------------------------------
+
+
+class TestExportCommand:
+    def test_export_success(self, tmp_path: Path) -> None:
+        mock_res = ExportResult(exported=["atlas", "info"])
+        with patch("shskills.core.exporter.export_skills", return_value=mock_res):
+            result = runner.invoke(app, ["export", "--agent", "codex", "--dest", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "exported" in result.output
+        assert "2 exported" in result.output
+
+    def test_export_conflicts_exits_nonzero(self, tmp_path: Path) -> None:
+        mock_res = ExportResult(conflicts=["atlas"])
+        with patch("shskills.core.exporter.export_skills", return_value=mock_res):
+            result = runner.invoke(app, ["export", "--agent", "codex", "--dest", str(tmp_path)])
+        assert result.exit_code == 1
+        assert "conflict" in result.output
+
+
+# ---------------------------------------------------------------------------
+# install with --path
+# ---------------------------------------------------------------------------
+
+
+class TestInstallPathCommand:
+    def test_install_both_url_and_path_errors(self, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["install", "--url", "https://github.com/foo/bar", "--path", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "Specify either --url or --path, not both" in result.output
+
+    def test_install_path_success(self, tmp_path: Path) -> None:
+        mock_result = InstallResult(installed=["atlas"])
+        with patch("shskills.core.installer.install", return_value=mock_result):
+            result = runner.invoke(app, ["install", "--path", str(tmp_path), "--agent", "antigravity"])
+        assert result.exit_code == 0
+        assert "installed" in result.output
+
+
+# ---------------------------------------------------------------------------
+# sync with --path
+# ---------------------------------------------------------------------------
+
+
+class TestSyncPathCommand:
+    def test_sync_with_path_override(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "pyproject.toml"
+        config_file.write_text(
+            '[tool.shskill]\npath = "SKILLS"\nskills = ["atlas"]\nagent = "gemini"\n',
+            encoding="utf-8",
+        )
+        mock_result = InstallResult(installed=["atlas"])
+        with patch("shskills.core.installer.sync_project", return_value=mock_result):
+            result = runner.invoke(app, ["sync", "--config", str(config_file)])
+        assert result.exit_code == 0
+        assert "synced" in result.output
+
+    def test_sync_multi_agent(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "pyproject.toml"
+        config_file.write_text(
+            """
+[tool.shskill.claude]
+skills = ["interview-prep"]
+
+[tool.shskill.gemini]
+skills = ["atlas", "info"]
+""",
+            encoding="utf-8",
+        )
+        mock_result = InstallResult(installed=["atlas"])
+        with patch("shskills.core.installer.sync_project", return_value=mock_result):
+            result = runner.invoke(app, ["sync", "--config", str(config_file)])
+        assert result.exit_code == 0
+        assert "Syncing agent: claude" in result.output
+        assert "Syncing agent: gemini" in result.output
+
+    def test_sync_filtered_agent(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "pyproject.toml"
+        config_file.write_text(
+            """
+[tool.shskill.claude]
+skills = ["interview-prep"]
+
+[tool.shskill.gemini]
+skills = ["atlas", "info"]
+""",
+            encoding="utf-8",
+        )
+        mock_result = InstallResult(installed=["interview-prep"])
+        with patch("shskills.core.installer.sync_project", return_value=mock_result):
+            result = runner.invoke(app, ["sync", "--config", str(config_file), "--agent", "claude"])
+        assert result.exit_code == 0
+        assert "synced" in result.output
+
+    def test_sync_json_output(self, tmp_path: Path) -> None:
+        import json
+        config_file = tmp_path / "pyproject.toml"
+        config_file.write_text(
+            '[tool.shskill]\nskills = ["atlas"]\nagent = "gemini"\n',
+            encoding="utf-8",
+        )
+        mock_result = InstallResult(installed=["atlas"])
+        with patch("shskills.core.installer.sync_project", return_value=mock_result):
+            result = runner.invoke(app, ["sync", "--config", str(config_file), "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "gemini" in data
+        assert data["gemini"]["installed"] == ["atlas"]
+
+    def test_doctor_json_output(self) -> None:
+        import json
+        mock_report = DoctorReport(agent="claude", dest="dummy", installed_count=2, healthy=True)
+        with patch("shskills.core.installer.doctor", return_value=mock_report):
+            result = runner.invoke(app, ["doctor", "--agent", "claude", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["healthy"] is True
+        assert data["installed_count"] == 2

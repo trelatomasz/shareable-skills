@@ -1,39 +1,44 @@
 ---
-name: shskill
-description: Install and synchronize AI-agent skills with the shskill CLI. Use when a user asks to install a skill by name from a Git repository, list available remote skills, sync skills declared by a project, check installed skills, update a skill, or remove a managed skill.
+name: shskills
+description: Install, export, and synchronize AI-agent skills with the shskills CLI. Use when a user asks to install a skill by name from a Git repository or local path, export existing skills to a generic folder, sync skills declared in pyproject.toml, check installed skills, update a skill, or remove a managed skill.
 ---
 
-# Use shskill
+# Use shskills
 
-Run commands from the target project's root. Let `shskill` fetch and write skills; do not
-copy skill directories manually.
+Run commands from the target project's root. Let `shskill` (or `shskills`) fetch, export, and write skills; do not copy skill directories manually.
 
-Install one skill when the user gives a repository URL and skill name:
-
-```bash
-shskill install <skill-name> --url <repository-url> --agent <agent>
-```
-
-This installs the skill in the current project's agent directory, for example
-`.claude/skills/<skill-name>/` for Claude.
-
-Use `claude`, `codex`, `gemini`, or `opencode` for `<agent>`. If a name is ambiguous,
-inspect the repository and retry with the reported source path:
-
-```bash
-shskill list --url <repository-url>
-shskill install <group/skill-name> --url <repository-url> --agent <agent>
-```
-
-For a repository with `[tool.shskill]` in `pyproject.toml`, install every declared skill:
+## 1. Synchronize Project Skills
+Synchronize all skills declared in `pyproject.toml` (`[tool.shskill]` or `[tool.shskills]`):
 
 ```bash
 shskill sync
+shskill sync --agent <agent>
+shskill sync --export-first   # Export newer agent-side edits to generic skills first
+shskill sync --force          # Discard agent-side edits and overwrite with source
 ```
 
-Use `--dry-run` before a risky update and `--force` only when the user wants to replace a
-locally modified managed skill. Verify managed installations with:
+## 2. Export Skills to Generic Folder
+Extract skills from an agent's directory into the generic `SKILLS/` folder:
 
 ```bash
+shskill export --agent <agent>
+shskill export <skill-name> --agent <agent> --dest SKILLS
+```
+
+## 3. Install Skills
+Install individual skills from a Git repository or local directory:
+
+```bash
+shskill install <skill-name> --url <repository-url> --agent <agent>
+shskill install <skill-name> --path <local-path> --agent <agent>
+```
+
+Supported agents for `<agent>`: `antigravity`, `claude`, `codex`, `gemini`, `opencode`.
+
+## 4. Query and Verify
+```bash
+shskill list --url <repository-url>
+shskill installed --agent <agent>
 shskill doctor --agent <agent>
+shskill --skill               # Print canonical skill repository URL
 ```
