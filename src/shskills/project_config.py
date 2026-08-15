@@ -14,9 +14,7 @@ from shskills.models import SkillSource
 _GITHUB_TREE_RE = re.compile(
     r"^https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?/tree/([^/]+)(?:/(.*))?/?$"
 )
-_GITHUB_REPO_RE = re.compile(
-    r"^https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$"
-)
+_GITHUB_REPO_RE = re.compile(r"^https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$")
 
 
 @dataclass(frozen=True)
@@ -48,7 +46,11 @@ def parse_skill_spec(
 
     # Self-skill macro
     if spec_clean.lower() in ("$shskills", "$shskill", "$self"):
-        source = SkillSource(url="https://github.com/trelatomasz/shskills.git", ref=default_ref, subpath=None)
+        source = SkillSource(
+            url="https://github.com/trelatomasz/shskills.git",
+            ref=default_ref,
+            subpath=None,
+        )
         return source, "$shskills"
 
     # Match GitHub tree URL
@@ -109,9 +111,7 @@ def load_project_configs(path: Path = Path("pyproject.toml")) -> list[ProjectCon
         raise ConfigError(f"[tool.shskill] in '{path}' must be a table")
 
     # Check for agent sub-tables
-    agent_subtables = {
-        k: v for k, v in raw.items() if isinstance(v, dict) and k in KNOWN_AGENTS
-    }
+    agent_subtables = {k: v for k, v in raw.items() if isinstance(v, dict) and k in KNOWN_AGENTS}
 
     if agent_subtables:
         top_url = raw.get("url")
@@ -125,18 +125,25 @@ def load_project_configs(path: Path = Path("pyproject.toml")) -> list[ProjectCon
             skills = agent_raw.get("skills", [])
             ref = agent_raw.get("ref", top_ref)
 
-            if not isinstance(skills, list) or not skills or not all(
-                isinstance(item, str) and item.strip() for item in skills
+            if (
+                not isinstance(skills, list)
+                or not skills
+                or not all(isinstance(item, str) and item.strip() for item in skills)
             ):
                 raise ConfigError(
-                    f"[tool.shskill.{agent_name}].skills must be a non-empty list of skill names/URLs"
+                    f"[tool.shskill.{agent_name}].skills must be a"
+                    " non-empty list of skill names/URLs"
                 )
 
             configs.append(
                 ProjectConfig(
                     agent=agent_name,
                     skills=tuple(item.strip() for item in skills),
-                    path=local_path.strip() if isinstance(local_path, str) and local_path.strip() else None,
+                    path=(
+                        local_path.strip()
+                        if isinstance(local_path, str) and local_path.strip()
+                        else None
+                    ),
                     url=url.strip() if isinstance(url, str) and url.strip() else None,
                     ref=ref.strip() if isinstance(ref, str) and ref.strip() else DEFAULT_REF,
                 )
@@ -150,8 +157,10 @@ def load_project_configs(path: Path = Path("pyproject.toml")) -> list[ProjectCon
     agent = raw.get("agent", "claude")
     ref = raw.get("ref", DEFAULT_REF)
 
-    if not isinstance(skills, list) or not skills or not all(
-        isinstance(item, str) and item.strip() for item in skills
+    if (
+        not isinstance(skills, list)
+        or not skills
+        or not all(isinstance(item, str) and item.strip() for item in skills)
     ):
         raise ConfigError("[tool.shskill].skills must be a non-empty list of skill names/URLs")
     if not isinstance(agent, str) or agent not in KNOWN_AGENTS or agent == "custom":
@@ -162,14 +171,18 @@ def load_project_configs(path: Path = Path("pyproject.toml")) -> list[ProjectCon
         ProjectConfig(
             agent=agent,
             skills=tuple(item.strip() for item in skills),
-            path=local_path.strip() if isinstance(local_path, str) and local_path.strip() else None,
+            path=(
+                local_path.strip() if isinstance(local_path, str) and local_path.strip() else None
+            ),
             url=url.strip() if isinstance(url, str) and url.strip() else None,
             ref=ref.strip() if isinstance(ref, str) and ref.strip() else DEFAULT_REF,
         )
     ]
 
 
-def load_project_config(path: Path = Path("pyproject.toml"), agent: str | None = None) -> ProjectConfig:
+def load_project_config(
+    path: Path = Path("pyproject.toml"), agent: str | None = None
+) -> ProjectConfig:
     """Load a single ProjectConfig for *agent* (or the only defined config)."""
     configs = load_project_configs(path)
     if agent:

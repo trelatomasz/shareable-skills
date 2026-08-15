@@ -34,7 +34,7 @@ class TestVersionFlag:
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
         assert __version__ in result.output
-        assert "shskill" in result.output
+        assert "shskills" in result.output
 
     def test_skill_link_option(self) -> None:
         result = runner.invoke(app, ["--skill"])
@@ -307,8 +307,6 @@ class TestInstalledCommand:
         assert "welcome_note" in result.output
 
 
-
-
 # ---------------------------------------------------------------------------
 # doctor
 # ---------------------------------------------------------------------------
@@ -376,14 +374,18 @@ class TestExportCommand:
 
 class TestInstallPathCommand:
     def test_install_both_url_and_path_errors(self, tmp_path: Path) -> None:
-        result = runner.invoke(app, ["install", "--url", "https://github.com/foo/bar", "--path", str(tmp_path)])
+        result = runner.invoke(
+            app, ["install", "--url", "https://github.com/foo/bar", "--path", str(tmp_path)]
+        )
         assert result.exit_code != 0
         assert "Specify either --url or --path, not both" in result.output
 
     def test_install_path_success(self, tmp_path: Path) -> None:
         mock_result = InstallResult(installed=["atlas"])
         with patch("shskills.core.installer.install", return_value=mock_result):
-            result = runner.invoke(app, ["install", "--path", str(tmp_path), "--agent", "antigravity"])
+            result = runner.invoke(
+                app, ["install", "--path", str(tmp_path), "--agent", "antigravity"]
+            )
         assert result.exit_code == 0
         assert "installed" in result.output
 
@@ -445,6 +447,7 @@ skills = ["atlas", "info"]
 
     def test_sync_json_output(self, tmp_path: Path) -> None:
         import json
+
         config_file = tmp_path / "pyproject.toml"
         config_file.write_text(
             '[tool.shskill]\nskills = ["atlas"]\nagent = "gemini"\n',
@@ -460,6 +463,7 @@ skills = ["atlas", "info"]
 
     def test_doctor_json_output(self) -> None:
         import json
+
         mock_report = DoctorReport(agent="claude", dest="dummy", installed_count=2, healthy=True)
         with patch("shskills.core.installer.doctor", return_value=mock_report):
             result = runner.invoke(app, ["doctor", "--agent", "claude", "--json"])

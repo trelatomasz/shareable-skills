@@ -88,9 +88,7 @@ def test_parse_skill_spec() -> None:
     assert name is None
 
     # GitHub tree without SKILLS prefix
-    source2, name2 = parse_skill_spec(
-        "https://github.com/org/repo/tree/main/aws/scale_up"
-    )
+    source2, name2 = parse_skill_spec("https://github.com/org/repo/tree/main/aws/scale_up")
     assert source2 == SkillSource(
         url="https://github.com/org/repo.git",
         ref="main",

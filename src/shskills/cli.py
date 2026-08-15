@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich import print as rprint
@@ -17,7 +17,7 @@ from shskills.config import DEFAULT_REF, KNOWN_AGENTS
 from shskills.exceptions import ConfigError, FetchError, InstallError, ManifestError, ShskillsError
 
 app = typer.Typer(
-    name="shskill",
+    name="shskills",
     help="Install agent skills from GitHub repositories or local paths.",
     no_args_is_help=True,
     pretty_exceptions_enable=False,
@@ -100,10 +100,11 @@ def cmd_export(
         typer.Option("--verbose", "-v", help="Show detailed progress."),
     ] = False,
 ) -> None:
-    """Read existing skills from an agent configuration and store them in a generic SKILLS folder."""
+    """Read skills from an agent config and store in SKILLS folder."""
     _setup_logging(verbose)
-    from shskills.core.exporter import export_skills
     import json
+
+    from shskills.core.exporter import export_skills
 
     try:
         result = export_skills(
@@ -248,14 +249,19 @@ def cmd_install(
         raise typer.Exit(code=1)
     if url and path:
         if json_output:
-            print(json.dumps({"error": "Specify either --url or --path, not both.", "status": "error"}))
+            print(
+                json.dumps(
+                    {"error": "Specify either --url or --path, not both.", "status": "error"}
+                )
+            )
         else:
             err_console.print("Error: Specify either --url or --path, not both.")
         raise typer.Exit(code=1)
 
     logger = logging.getLogger(__name__)
     logger.debug(
-        "install url=%s path=%s agent=%s subpath=%s ref=%s dest=%s dry_run=%s force=%s clean=%s strict=%s",
+        "install url=%s path=%s agent=%s subpath=%s ref=%s dest=%s dry_run=%s"
+        " force=%s clean=%s strict=%s",
         url,
         path,
         agent,
@@ -355,7 +361,7 @@ def cmd_install(
 def cmd_sync(
     config: Annotated[
         Path,
-        typer.Option("--config", help="pyproject.toml containing [tool.shskill]."),
+        typer.Option("--config", help="pyproject.toml containing [tool.shskills]."),
     ] = Path("pyproject.toml"),
     path: Annotated[
         Path | None,
@@ -371,7 +377,9 @@ def cmd_sync(
     ] = False,
     force: Annotated[
         bool,
-        typer.Option("--force", "-f", help="Force sync and overwrite local changes in agent config."),
+        typer.Option(
+            "--force", "-f", help="Force sync and overwrite local changes in agent config."
+        ),
     ] = False,
     export_first: Annotated[
         bool,
@@ -393,7 +401,7 @@ def cmd_sync(
         typer.Option("--verbose", "-v", help="Show detailed progress."),
     ] = False,
 ) -> None:
-    """Install the skills declared in [tool.shskill] for all or specified agents."""
+    """Install the skills declared in [tool.shskills] for all or specified agents."""
     _setup_logging(verbose)
     import json
 
@@ -412,7 +420,7 @@ def cmd_sync(
 
         overall_errors = False
         overall_conflicts = False
-        results_by_agent: dict[str, dict] = {}
+        results_by_agent: dict[str, dict[str, Any]] = {}
 
         for project in target_configs:
             if not json_output and len(target_configs) > 1:
@@ -459,7 +467,7 @@ def cmd_sync(
 
             if result.errors or result.conflicts:
                 overall_errors = True
-        
+
         if json_output:
             print(json.dumps(results_by_agent))
 
@@ -569,6 +577,7 @@ def cmd_installed(
     logger = logging.getLogger(__name__)
     logger.debug("installed agent=%s dest=%s", agent, dest)
     import json
+
     from shskills.core.manifest import installed_skills
 
     try:
@@ -632,6 +641,7 @@ def cmd_doctor(
     logger = logging.getLogger(__name__)
     logger.debug("doctor agent=%s dest=%s", agent, dest)
     import json
+
     from shskills.core.installer import doctor
     from shskills.models import DoctorSeverity
 
@@ -779,7 +789,9 @@ def _version_callback(
     ] = None,
     skill_link: Annotated[
         bool,
-        typer.Option("--skill", help="Print canonical skill repository URL and exit.", is_eager=True),
+        typer.Option(
+            "--skill", help="Print canonical skill repository URL and exit.", is_eager=True
+        ),
     ] = False,
     version: Annotated[
         bool,
@@ -800,7 +812,7 @@ def _version_callback(
         rprint("[dim]Restart active coding agents so they discover the new skill.[/dim]")
         raise typer.Exit()
     if version:
-        rprint(f"shskill {__version__}")
+        rprint(f"shskills {__version__}")
         raise typer.Exit()
 
 

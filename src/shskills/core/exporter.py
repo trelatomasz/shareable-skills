@@ -11,7 +11,7 @@ from shskills.config import SKILL_MARKER, resolve_dest
 from shskills.core.planner import discover_skills
 from shskills.core.validator import compute_skill_sha256
 from shskills.exceptions import ConfigError, InstallError
-from shskills.models import ExportResult, SkillInfo
+from shskills.models import ExportResult
 
 logger = logging.getLogger(__name__)
 

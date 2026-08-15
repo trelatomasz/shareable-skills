@@ -137,12 +137,12 @@ class InstallResult(BaseModel):
     errors: list[str] = []
     cleaned: list[str] = []
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def success(self) -> bool:
         return not self.errors and not self.conflicts
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_changes(self) -> int:
         return len(self.installed) + len(self.updated) + len(self.cleaned)
@@ -155,12 +155,12 @@ class ExportResult(BaseModel):
     conflicts: list[str] = []
     errors: list[str] = []
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def success(self) -> bool:
         return not self.errors and not self.conflicts
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_changes(self) -> int:
         return len(self.exported) + len(self.updated)
@@ -190,7 +190,7 @@ class DoctorReport(BaseModel):
     issues: list[DoctorIssue] = []
     installed_count: int = 0
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def healthy(self) -> bool:
         return not any(i.severity == DoctorSeverity.ERROR for i in self.issues)

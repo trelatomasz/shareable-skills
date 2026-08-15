@@ -1,6 +1,6 @@
 # shskills
 
-[![CI](https://github.com/trelatomasz/shskills/actions/workflows/ci.yml/badge.svg)](https://github.com/trelatomasz/shskills/actions/workflows/ci.yml)
+[![CI](https://github.com/trelatomasz/shskills/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/trelatomasz/shskills/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/shskills.svg)](https://pypi.org/project/shskills/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/shskills.svg)](https://pypi.org/project/shskills/)
@@ -8,7 +8,7 @@
 
 **Install agent skills from GitHub repositories.**
 
-`shskills` is a CLI tool and Python library that fetches skill definitions from a remote Git repository and installs them into the correct directory for your AI agent (Claude, Codex, Gemini, OpenCode, or a custom target).
+`shskills` is a CLI tool and Python library that fetches skill definitions from a remote Git repository or local directory and installs them into the correct directory for your AI agent (Antigravity, Claude, Codex, Gemini, OpenCode, or a custom target).
 
 ---
 
@@ -17,140 +17,115 @@
 ```bash
 pip install shskills
 
-# Teach every supported coding agent in this project how to use shskill
-shskill --install self
+# Teach every supported coding agent in this project how to use shskills
+shskills --install self
 
 # Install one skill by name; no SKILLS/ path knowledge required
-shskill install learning-session --url https://github.com/org/repo --agent claude
+shskills install learning-session --url https://github.com/org/skills-repo --agent claude
 
 # Install the list declared in pyproject.toml
-shskill sync
+shskills sync
 ```
 
-For local development, use an editable source install so every source change is visible
-immediately:
+For local development, use an editable source install so changes are visible immediately:
 
 ```bash
 pip install -e /path/to/shskills
 # or add an editable path source with uv in the consuming project
 ```
 
-The original plural `shskills` command remains available as a compatibility alias.
+---
 
-### Brand-new project workflow
+## Installation
 
-Run these commands from the new project's root:
+Requires Python >= 3.11 and Git >= 2.28.
 
 ```bash
-# Published package
+pip install shskills
+# or
+uv add shskills
+# or
+pipx install shskills
+```
+
+---
+
+## Project Workflow
+
+### Brand-new project setup
+
+Run these commands from your project root:
+
+```bash
+# 1. Install shskills
 python -m pip install shskills
 
-# Local source checkout: edits become visible immediately
-python -m pip install -e /path/to/shskills
-
-# Install shskill's own instructions for supported coding agents
-shskill --install self
+# 2. Install shskills's own instructions for supported coding agents
+shskills --install self
 ```
 
 Restart the active coding agent after installing the self skill. You can then ask it:
 
 > Install skill `learning-session` from `https://github.com/org/skills-repo`.
 
-The agent uses:
+The agent will run:
 
 ```bash
-shskill install learning-session \
+shskills install learning-session \
   --url https://github.com/org/skills-repo \
   --agent claude
 ```
 
-Named installation is project-local. The example above writes
-`.claude/skills/learning-session/`; it does not modify a user-global skills directory.
+Named installation is project-local (e.g. `.claude/skills/learning-session/` or `.agents/skills/learning-session/`); it does not modify a user-global skills directory.
 
-### Minimal project configuration
+### Project configuration (`pyproject.toml`)
+
+Declare project skill dependencies directly in `pyproject.toml`:
 
 ```toml
-[tool.shskill]
+[tool.shskills]
 url = "https://github.com/org/skills-repo.git"
 agent = "claude"
 skills = ["learning-session", "welcome-note"]
 ```
 
-Then run `shskill sync`. Add `ref = "v1.2.0"` only when the project needs a pinned branch,
-tag, or commit. One source per project is intentionally supported to keep configuration
-obvious.
+Then run `shskills sync`. Add `ref = "v1.2.0"` if you need a pinned branch, tag, or commit SHA.
 
-Use this lifecycle after cloning or editing the requirement list:
+Multi-agent configuration is also supported:
 
-```bash
-shskill sync
-shskill doctor --agent claude
+```toml
+[tool.shskills]
+url = "https://github.com/org/skills-repo.git"
+
+[tool.shskills.claude]
+skills = ["learning-session", "welcome-note"]
+
+[tool.shskills.antigravity]
+skills = ["learning-session"]
 ```
 
-### Existing all-skills flow
+Use this lifecycle after cloning or updating dependencies:
 
 ```bash
-
-# Install all skills for Claude
-shskills install --url https://github.com/org/repo --agent claude
-
-# Install a specific group
-shskills install --url https://github.com/org/repo --agent claude --subpath aws
-
-# Install a single skill
-shskills install --url https://github.com/org/repo --agent claude --subpath aws/scale_up_service
+shskills sync
+shskills doctor --agent claude
 ```
 
 ---
 
-## Installation
-
-Requires Python >= 3.11 and Git >= 2.28.
-
-```bash
-pip install shskills
-# or
-uv add shskills
-# or
-pipx install shskills
-```
-
-# Install a specific group
-shskills install --url https://github.com/org/repo --agent claude --subpath aws
-
-# Install a single skill
-shskills install --url https://github.com/org/repo --agent claude --subpath aws/scale_up_service
-```
-
----
-
-## Installation
-
-Requires Python >= 3.11 and Git >= 2.28.
-
-```bash
-pip install shskills
-# or
-uv add shskills
-# or
-pipx install shskills
-```
-
----
-
-## CLI reference
+## CLI Reference
 
 ### `install`
 
 Fetch and install skills from a remote repository or a local directory.
 
 ```
-shskill install [SKILL_NAME_OR_SOURCE_PATH] [OPTIONS]
+shskills install [SKILL_NAME_OR_SOURCE_PATH] [OPTIONS]
 
 Options:
   --url       -u  TEXT    Git repository URL (required if --path is not used)
   --path      -p  PATH    Local directory containing skills (e.g. SKILLS/)
-  --agent     -a  TEXT    Target agent: antigravity, claude, codex, gemini, opencode, custom
+  --agent     -a  TEXT    Target agent: antigravity, claude, codex, gemini, opencode, custom  [default: claude]
   --subpath   -s  TEXT    Path relative to SKILLS/ to install
   --ref       -r  TEXT    Branch, tag, or commit SHA  [default: main]
   --dest      -d  PATH    Override the default destination directory
@@ -161,92 +136,95 @@ Options:
   --verbose   -v          Show detailed per-skill progress
 ```
 
-### `export`
-
-Read existing skills from an agent's directory and store them in a generic `SKILLS` folder:
+#### Examples
 
 ```bash
-# Export all skills from Codex configuration into generic SKILLS/
-shskill export --agent codex --dest SKILLS
+# Install a single skill by name
+shskills install learning-session --url https://github.com/org/skills-repo --agent claude
 
-# Export a single skill with force overwrite
-shskill export atlas --agent codex --dest SKILLS --force
-```
-
-When a skill name occurs in more than one group, the command reports the matching source
-paths. Re-run with one of those paths, for example `shskill install
-common/learning-session --url <repo>`.
-
-```bash
-# Install all skills, Claude adapter
+# Install all skills from a remote repo
 shskills install --url https://github.com/org/skills-repo --agent claude
+
+# Install a specific subpath group
+shskills install --url https://github.com/org/skills-repo --agent claude --subpath aws
+
+# Install from a local directory
+shskills install --path ./local-skills --agent antigravity
 
 # Preview changes without writing anything
 shskills install --url https://github.com/org/skills-repo --agent claude --dry-run
 
-# Force-update all skills even if locally modified
+# Force update all skills even if locally modified
 shskills install --url https://github.com/org/skills-repo --agent claude --force
 
-# Pin to a tag
+# Pin to a tag or commit SHA
 shskills install --url https://github.com/org/skills-repo --agent claude --ref v2.1.0
 
-# Pin to a commit SHA
-shskills install \
-  --url https://github.com/org/skills-repo \
-  --agent claude \
-  --ref a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
-
-# Install into a custom directory
-shskills install --url https://github.com/org/skills-repo --agent custom --dest ./my-skills
-
-# Install and remove skills that no longer exist in the source
+# Install and remove orphaned skills
 shskills install --url https://github.com/org/skills-repo --agent claude --clean
+```
+
+---
+
+### `export`
+
+Read existing skills from an agent's directory and store them into a generic `SKILLS/` folder:
+
+```bash
+# Export all skills from Codex configuration into generic SKILLS/
+shskills export --agent codex --dest SKILLS
+
+# Export a single skill with force overwrite
+shskills export atlas --agent codex --dest SKILLS --force
 ```
 
 ---
 
 ### `--install self`
 
-Install the bundled `shskill` agent instructions into the current project:
+Install the bundled `shskills` agent instructions into the current project:
 
 ```bash
-shskill --install self
+shskills --install self
 ```
 
-This creates `shskill/SKILL.md` under each supported project-local agent directory:
-`.claude/skills/`, `.codex/skills/`, `.gemini/skills/`, and `.opencode/skills/`. Restart
-active coding agents afterward so they discover the new skill.
+This creates `shskills/SKILL.md` under each supported project-local agent directory: `.agents/skills/`, `.claude/skills/`, `.codex/skills/`, `.gemini/skills/`, and `.opencode/skills/`. Restart active coding agents afterward so they discover the new skill.
+
+---
 
 ### `sync`
 
-Read `[tool.shskill]` from `pyproject.toml` and install every listed skill:
+Read `[tool.shskills]` from `pyproject.toml` and synchronize all listed skills:
 
 ```bash
-shskill sync
-shskill sync --dry-run
-shskill sync --force
-shskill sync --clean
+shskills sync
+shskills sync --dry-run
+shskills sync --force
+shskills sync --clean
+shskills sync --export-first
 ```
 
-`--force` replaces locally modified managed skills. `--clean` also removes skills recorded
-in the same manifest but omitted from the current requirement list. Neither option is used
-implicitly.
+- `--force`: replaces locally modified managed skills with the remote source.
+- `--clean`: removes skills recorded in the manifest that are no longer listed in `pyproject.toml`.
+- `--export-first`: writes newer local edits back to the source directory before syncing.
+
+---
 
 ### `list`
 
-List available skills in a remote repository without installing.
+List available skills in a remote repository without installing:
 
-```
-shskills list --url https://github.com/org/repo [--subpath aws] [--ref main] [--verbose]
+```bash
+shskills list --url https://github.com/org/skills-repo [--subpath aws] [--ref main] [--verbose]
 ```
 
 ---
 
 ### `installed`
 
-Show skills currently installed for an agent.
+Show skills currently installed for an agent:
 
-```
+```bash
 shskills installed --agent claude
 shskills installed --agent claude --dest ./custom-dest
 ```
@@ -255,9 +233,9 @@ shskills installed --agent claude --dest ./custom-dest
 
 ### `doctor`
 
-Check the health of installed skills: verifies files are present and SHA-256 digests match the manifest.
+Check the health of installed skills: verifies files are present and SHA-256 digests match the manifest:
 
-```
+```bash
 shskills doctor --agent claude
 ```
 
@@ -265,7 +243,7 @@ Exit code 0 = healthy. Exit code 1 = one or more errors found.
 
 ---
 
-## Repository skill format
+## Repository Skill Format
 
 Skills live in a `SKILLS/` directory tree inside the repository:
 
@@ -278,10 +256,9 @@ SKILLS/
       ...
 ```
 
-A **skill directory** is any directory containing a `SKILL.md` file.
-Nesting depth is unrestricted.
+A **skill directory** is any directory containing a `SKILL.md` file. Nesting depth is unrestricted.
 
-### SKILL.md front-matter
+### SKILL.md Front-Matter
 
 `SKILL.md` may begin with an optional `---` delimited front-matter block:
 
@@ -305,10 +282,11 @@ version: "1.2.0"
 
 ---
 
-## Destination mapping
+## Destination Mapping
 
 | `--agent` | Default destination |
 |---|---|
+| `antigravity` | `.agents/skills/` |
 | `claude` | `.claude/skills/` |
 | `codex` | `.codex/skills/` |
 | `gemini` | `.gemini/skills/` |
@@ -317,10 +295,9 @@ version: "1.2.0"
 
 The destination path is always relative to the current working directory (your project root).
 
-### Installed path structure
+### Installed Path Structure
 
-Named installs use the skill directory's leaf name. Bulk installs flatten source groups
-with `__`; `--subpath` makes that source subtree the destination root:
+Named installs use the skill directory's leaf name. Bulk installs flatten source groups with `__`; `--subpath` makes that source subtree the destination root:
 
 | Invocation | Source path | Installed at |
 |---|---|---|
@@ -331,18 +308,16 @@ with `__`; `--subpath` makes that source subtree the destination root:
 
 ---
 
-## Adapter system
+## Adapter System
 
 Each agent has an **adapter** (`shskills.adapters.*`) that controls how skill files are written to disk.
 
-The base adapter copies all skill files verbatim. Agent-specific adapters can override
-`preprocess(skill, dest_dir)` to rename, reformat, or generate additional files for that
-agent's expected format.
+The base adapter copies all skill files verbatim. Agent-specific adapters can override `preprocess(skill, dest_dir)` to rename, reformat, or generate additional files for that agent's expected format.
 
 ```python
+from pathlib import Path
 from shskills.adapters.base import AgentAdapter
 from shskills.models import SkillInfo
-from pathlib import Path
 
 class MyAdapter(AgentAdapter):
     @property
@@ -350,10 +325,9 @@ class MyAdapter(AgentAdapter):
         return "myagent"
 
     def preprocess(self, skill: SkillInfo, dest_dir: Path) -> list[str]:
-        # Custom transformation: expose only a single prompt.md
         dest_dir.mkdir(parents=True, exist_ok=True)
         out = dest_dir / "prompt.md"
-        out.write_text((skill.local_path / "SKILL.md").read_text())
+        out.write_text((skill.local_path / "SKILL.md").read_text(encoding="utf-8"), encoding="utf-8")
         return ["prompt.md"]
 ```
 
@@ -370,7 +344,7 @@ After installation, `shskills` writes a manifest at `<dest>/.shskills-manifest.j
   "dest": ".claude/skills",
   "updated_at": "2026-02-28T12:00:00+00:00",
   "source": {
-    "url": "https://github.com/org/repo",
+    "url": "https://github.com/org/skills-repo",
     "ref": "main",
     "subpath": null
   },
@@ -387,22 +361,19 @@ After installation, `shskills` writes a manifest at `<dest>/.shskills-manifest.j
 }
 ```
 
-The manifest is used to detect up-to-date skills (idempotency via SHA-256), identify
-orphans for `--clean`, and power the `installed` and `doctor` commands.
-
-Written atomically (temp file then rename) so a crash cannot corrupt it.
+The manifest detects up-to-date skills (idempotency via SHA-256), identifies orphans for `--clean`, and powers `installed` and `doctor`. It is written atomically via temporary file and replace.
 
 ---
 
 ## Python API
 
 ```python
-from shskills import install, list_skills, installed_skills, doctor
 from pathlib import Path
+from shskills import doctor, install, installed_skills, list_skills
 
-# Install
+# Install skills
 result = install(
-    url="https://github.com/org/repo",
+    url="https://github.com/org/skills-repo",
     agent="claude",
     subpath="aws",
     ref="main",
@@ -415,7 +386,7 @@ print(result.installed)   # ["aws/scale_up"]
 print(result.skipped)     # ["aws/other_skill"]
 
 # List remote skills without installing
-skills = list_skills(url="https://github.com/org/repo", subpath="aws")
+skills = list_skills(url="https://github.com/org/skills-repo", subpath="aws")
 for s in skills:
     print(s.name, s.frontmatter.description)
 
@@ -432,7 +403,7 @@ for issue in report.issues:
 
 ---
 
-## Conflict policy
+## Conflict Policy
 
 | Situation | Default | `--force` | `--clean` |
 |---|---|---|---|
@@ -444,24 +415,21 @@ for issue in report.issues:
 
 ---
 
-## Security notes
+## Security Notes
 
-- **No code execution.** No fetched file is ever executed or evaluated.
-- **Path sanitisation.** All source paths are validated against `..` traversal and absolute
-  paths; any violation raises an error before any file is touched.
+- **No code execution.** No fetched file is executed or evaluated during discovery or installation.
+- **Path sanitisation.** All source paths are validated against `..` traversal and absolute paths before any file is touched.
 - **Symlinks rejected.** Symlinks inside skill directories are refused.
 - **File size cap.** Files larger than 512 KB are rejected (configurable via `MAX_FILE_BYTES`).
-- **Untrusted input.** The remote repository is treated as untrusted. SKILL.md front-matter
-  is parsed with a plain regex — no YAML or TOML evaluator is invoked.
-- **Atomic manifest.** The manifest is written via temp-file-then-rename; a crash cannot
-  leave a partial or corrupt manifest file.
+- **Untrusted input.** The remote repository is treated as untrusted. `SKILL.md` front-matter is parsed with a regex rather than executing YAML/TOML code.
+- **Atomic manifest.** The manifest is written via temp-file-then-rename; a crash cannot leave a corrupt manifest.
 
 ---
 
-## Local development
+## Local Development
 
 ```bash
-git clone https://github.com/your-org/shskills
+git clone https://github.com/trelatomasz/shskills
 cd shskills
 
 # Install in editable mode with dev dependencies
@@ -476,14 +444,8 @@ ruff check src/ tests/
 # Type-check
 mypy src/shskills
 
-# Run all tests (unit + integration)
+# Run all tests
 pytest
-
-# Unit tests only (fast, no git required)
-pytest tests/ --ignore=tests/integration
-
-# Integration tests only (requires git >= 2.28)
-pytest tests/integration/
 ```
 
 ---
@@ -495,7 +457,7 @@ pytest tests/integration/
 1. Go to <https://pypi.org/manage/account/publishing/>
 2. Add a trusted publisher:
    - **Package name:** `shskills`
-   - **Repository:** `your-org/shskills`
+   - **Repository:** `trelatomasz/shskills`
    - **Workflow filename:** `release.yml`
 
 ### Release
@@ -508,13 +470,4 @@ git commit -am "chore: bump to v0.2.0"
 # 3. Tag and push — the release workflow fires automatically
 git tag v0.2.0
 git push origin main --tags
-```
-### install from test pypi
-python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple shskills
-
-### Manual publish (fallback)
-
-```bash
-uv build
-uv publish --token "$PYPI_TOKEN"
 ```

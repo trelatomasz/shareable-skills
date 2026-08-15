@@ -108,6 +108,8 @@ def fetch_skills_tree(source: SkillSource) -> Iterator[Path]:
         FetchError: if git operations fail or the expected path is absent.
     """
     target = _sparse_target(source.subpath)
+    if not source.url:
+        raise FetchError("Missing URL for remote skill source")
 
     with tempfile.TemporaryDirectory(prefix="shskills-") as tmpdir:
         tmp = Path(tmpdir)

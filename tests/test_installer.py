@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -485,202 +487,6 @@ class TestDoctorPublicApi:
             ["SKILL.md"],
         )
         write_manifest(dest, manifest)
-
-        # Modify the file after recording manifest
-        (skill_dir / "SKILL.md").write_text("modified content")
-        orphan_dir = dest / "orphan_skill"
-        orphan_dir.mkdir(parents=True)
-
-        manifest = _make_manifest(
-            dest,
-            {"orphan_skill": "sha_orphan"},
-        )
-        # Add orphan_skill to manifest
-        plan = build_plan(
-            skills=[skill],
-            source=SkillSource(url="https://x.com/r", ref="main"),
-            agent="claude",
-            dest=dest,
-            manifest=manifest,
-            force=False,
-            clean=True,
-            strict=False,
-            dry_run=False,
-        )
-        adapter = ClaudeAdapter()
-        result = execute_plan(plan, manifest, adapter)
-
-        assert "orphan_skill" in result.cleaned
-        assert not orphan_dir.exists()
-
-    def test_update_overwrites_files(self, tmp_path: Path) -> None:
-        src = tmp_path / "src"
-        dest = tmp_path / "dest"
-        skill = _make_skill(src)
-
-        # Pre-install with a different sha to trigger UPDATE
-        manifest = _make_manifest(dest, {skill.rel_path: "old_different_sha"})
-        (dest / skill.rel_path).mkdir(parents=True)
-        (dest / skill.rel_path / "SKILL.md").write_text("old content")
-
-        plan = build_plan(
-            skills=[skill],
-            source=SkillSource(url="https://x.com/r", ref="main"),
-            agent="claude",
-            dest=dest,
-            manifest=manifest,
-            force=True,
-            clean=False,
-            strict=False,
-            dry_run=False,
-        )
-        adapter = ClaudeAdapter()
-        result = execute_plan(plan, manifest, adapter)
-
-        assert skill.rel_path in result.updated
-        # Content now matches source
-        src_content = (src / skill.name / "SKILL.md").read_text()
-        dest_content = (dest / skill.rel_path / "SKILL.md").read_text()
-        assert dest_content == src_content
-
-
-# ---------------------------------------------------------------------------
-# install() public API — mocked fetch
-# ---------------------------------------------------------------------------
-
-
-class TestInstallPublicApi:
-    def test_returns_empty_result_when_no_skills_found(self, tmp_path: Path) -> None:
-        from shskills import install
-
-        with patch("shskills.core.installer.fetch_skills_tree") as mock_fetch:
-            mock_fetch.return_value.__enter__ = lambda s: tmp_path / "SKILLS"
-            mock_fetch.return_value.__exit__ = lambda *a: False
-            (tmp_path / "SKILLS").mkdir()
-
-            result = install(
-                url="https://example.com/repo",
-                agent="claude",
-                dest=tmp_path / "dest",
-            )
-
-        assert result == InstallResult()
-
-    def test_strict_raises_on_conflict(self, tmp_path: Path) -> None:
-        from shskills import install
-        from shskills.exceptions import InstallError
-
-        src = tmp_path / "src"
-        dest = tmp_path / "dest"
-        skill = _make_skill(src, "skill_a")
-
-        # Pre-install with a different sha so a conflict is guaranteed
-        from shskills.core.manifest import write_manifest
-
-        manifest = _make_manifest(dest, {skill.rel_path: "old_sha"})
-        write_manifest(dest, manifest)
-
-        skills_root = tmp_path / "SKILLS"
-        skills_root.mkdir()
-        (skills_root / "skill_a").mkdir()
-        (skills_root / "skill_a" / "SKILL.md").write_text(
-            (src / "skill_a" / "SKILL.md").read_text()
-        )
-
-        with patch("shskills.core.installer.fetch_skills_tree") as mock_ctx:
-            ctx = MagicMock()
-            ctx.__enter__ = lambda s: skills_root
-            ctx.__exit__ = lambda *a: False
-            mock_ctx.return_value = ctx
-
-            with pytest.raises(InstallError, match="conflict"):
-                install(
-                    url="https://example.com/repo",
-                    agent="claude",
-                    dest=dest,
-                    strict=True,
-                )
-
-
-# ---------------------------------------------------------------------------
-# doctor() public API
-# ---------------------------------------------------------------------------
-
-
-class TestDoctorPublicApi:
-    def test_healthy_when_files_match(self, tmp_path: Path) -> None:
-        from shskills import doctor
-        from shskills.core.manifest import update_manifest_skill, write_manifest
-        from shskills.core.validator import compute_skill_sha256, list_skill_files
-
-        dest = tmp_path / "dest"
-        skill_dir = dest / "group" / "my_skill"
-        skill_dir.mkdir(parents=True)
-        (skill_dir / "SKILL.md").write_text("---\nname: my_skill\n---\n")
-
-        files = list_skill_files(skill_dir)
-        sha = compute_skill_sha256(skill_dir, files)
-
-        manifest = _make_manifest(dest)
-        update_manifest_skill(
-            manifest,
-            "group/my_skill",
-            "my_skill",
-            "group/my_skill",
-            str(dest / "group" / "my_skill"),
-            sha,
-            files,
-        )
-        write_manifest(dest, manifest)
-
-        report = doctor(agent="claude", dest=dest)
-        assert report.healthy
-        assert report.installed_count == 1
-
-    def test_error_when_skill_dir_missing(self, tmp_path: Path) -> None:
-        from shskills import doctor
-        from shskills.core.manifest import update_manifest_skill, write_manifest
-        from shskills.models import DoctorSeverity
-
-        dest = tmp_path / "dest"
-        manifest = _make_manifest(dest)
-        update_manifest_skill(
-            manifest,
-            "missing/skill",
-            "skill",
-            "missing/skill",
-            str(dest / "missing" / "skill"),
-            "sha123",
-            ["SKILL.md"],
-        )
-        write_manifest(dest, manifest)
-
-        report = doctor(agent="claude", dest=dest)
-        assert not report.healthy
-        assert any(i.severity == DoctorSeverity.ERROR for i in report.issues)
-
-    def test_warning_when_sha_mismatch(self, tmp_path: Path) -> None:
-        from shskills import doctor
-        from shskills.core.manifest import update_manifest_skill, write_manifest
-        from shskills.models import DoctorSeverity
-
-        dest = tmp_path / "dest"
-        skill_dir = dest / "my_skill"
-        skill_dir.mkdir(parents=True)
-        (skill_dir / "SKILL.md").write_text("original content")
-
-        manifest = _make_manifest(dest)
-        update_manifest_skill(
-            manifest,
-            "my_skill",
-            "my_skill",
-            "my_skill",
-            str(dest / "my_skill"),
-            "wrong_sha",
-            ["SKILL.md"],
-        )
-        write_manifest(dest, manifest)
-
         # Modify the file after recording manifest
         (skill_dir / "SKILL.md").write_text("modified content")
 
@@ -745,8 +551,6 @@ class TestSyncProject:
         assert (dest / "skill_a").exists()
 
     def test_sync_newer_agent_skill_conflict_and_export_first(self, tmp_path: Path) -> None:
-        import os
-        import time
         from shskills.core.installer import sync_project
         from shskills.project_config import ProjectConfig
 
@@ -781,8 +585,6 @@ class TestSyncProject:
         assert "Direct Agent Edit" in (skills_dir / "skill_a" / "SKILL.md").read_text()
 
     def test_sync_newer_agent_skill_with_force_discards_edits(self, tmp_path: Path) -> None:
-        import os
-        import time
         from shskills.core.installer import sync_project
         from shskills.project_config import ProjectConfig
 

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 from shskills.adapters.base import AgentAdapter
 from shskills.config import DEFAULT_REF, resolve_dest
+from shskills.core.exporter import _get_skill_mtime
 from shskills.core.fetcher import fetch_skills_tree
 from shskills.core.manifest import (
     read_manifest,
@@ -21,7 +22,6 @@ from shskills.core.manifest import (
     update_manifest_skill,
     write_manifest,
 )
-from shskills.core.exporter import _get_skill_mtime
 from shskills.core.planner import discover_skills
 from shskills.core.validator import compute_skill_sha256
 from shskills.exceptions import ConfigError, InstallError
@@ -76,13 +76,10 @@ def select_requested_skills(
         if len(matches) > 1:
             sources = ", ".join(m.source_rel for m in matches)
             raise InstallError(
-                f"Skill name '{req}' is ambiguous: {sources}. "
-                "Use one of those source paths."
+                f"Skill name '{req}' is ambiguous: {sources}. Use one of those source paths."
             )
         selected.append(
-            matches[0].model_copy(
-                update={"name": destination_name, "rel_path": destination_name}
-            )
+            matches[0].model_copy(update={"name": destination_name, "rel_path": destination_name})
         )
     return selected
 
@@ -102,13 +99,12 @@ def _action_for_skill(
     """Determine the InstallAction for a single skill against the destination and manifest."""
     dest_dir = dest / dest_rel
 
-    if manifest is None or dest_rel not in manifest.skills:
-        if not dest_dir.exists():
-            return InstallAction(
-                skill=skill,
-                dest_rel=dest_rel,
-                kind=InstallActionKind.INSTALL,
-            )
+    if (manifest is None or dest_rel not in manifest.skills) and not dest_dir.exists():
+        return InstallAction(
+            skill=skill,
+            dest_rel=dest_rel,
+            kind=InstallActionKind.INSTALL,
+        )
 
     existing = manifest.skills.get(dest_rel) if manifest else None
 
@@ -166,7 +162,10 @@ def _action_for_skill(
             skill=skill,
             dest_rel=dest_rel,
             kind=InstallActionKind.CONFLICT,
-            reason="local changes in agent directory are newer than source (use --force or --export-first)",
+            reason=(
+                "local changes in agent directory are newer than source"
+                " (use --force or --export-first)"
+            ),
         )
 
     return InstallAction(
@@ -342,7 +341,9 @@ def install(
     if path is not None:
         local_dir = Path(path)
         if not local_dir.exists() or not local_dir.is_dir():
-            raise ConfigError(f"Local skills path does not exist or is not a directory: {local_dir}")
+            raise ConfigError(
+                f"Local skills path does not exist or is not a directory: {local_dir}"
+            )
         source = SkillSource(path=str(local_dir), ref=ref, subpath=subpath)
 
         discovered = discover_skills(local_dir, subpath)
@@ -502,7 +503,7 @@ def sync_project(
             default_ref=project.ref,
         )
         is_url = bool(src.url)
-        loc = src.url if is_url else (src.path or "SKILLS")
+        loc: str = src.url or src.path or "SKILLS"
         key = (is_url, loc, src.ref, src.subpath)
         if skill_name is None:
             sources_map[key] = None
@@ -531,6 +532,7 @@ def sync_project(
 
         if has_self_skill:
             from shskills.self_install import _self_skill_content
+
             staged_self = stage_dir / "shskills"
             staged_self.mkdir(parents=True, exist_ok=True)
             (staged_self / "SKILL.md").write_text(_self_skill_content(), encoding="utf-8")

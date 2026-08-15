@@ -17,7 +17,9 @@ def test_export_skills_success(tmp_path: Path) -> None:
     source_dir = tmp_path / ".codex" / "skills"
     skill1_dir = source_dir / "my_skill"
     skill1_dir.mkdir(parents=True)
-    (skill1_dir / "SKILL.md").write_text("---\nname: my_skill\ndescription: Test\n---\n# My Skill\n")
+    (skill1_dir / "SKILL.md").write_text(
+        "---\nname: my_skill\ndescription: Test\n---\n# My Skill\n"
+    )
     (skill1_dir / "helper.py").write_text("print('hello')\n")
 
     dest_dir = tmp_path / "SKILLS"

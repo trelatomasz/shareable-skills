@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from shskills.adapters import get_adapter
+from shskills.adapters.antigravity import AntigravityAdapter
 from shskills.adapters.claude import ClaudeAdapter
 from shskills.adapters.codex import CodexAdapter
 from shskills.adapters.custom import CustomAdapter
@@ -169,15 +170,6 @@ class TestAdapterPreprocess:
 # ---------------------------------------------------------------------------
 # agent_name properties
 # ---------------------------------------------------------------------------
-
-
-from shskills.adapters.antigravity import AntigravityAdapter
-from shskills.adapters.base import AgentAdapter
-from shskills.adapters.claude import ClaudeAdapter
-from shskills.adapters.codex import CodexAdapter
-from shskills.adapters.custom import CustomAdapter
-from shskills.adapters.gemini import GeminiAdapter
-from shskills.adapters.opencode import OpenCodeAdapter
 
 
 class TestAgentNames:

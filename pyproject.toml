@@ -29,7 +29,6 @@ dependencies = [
 ]
 
 [project.scripts]
-shskill = "shskills.cli:app"
 shskills = "shskills.cli:app"
 
 [project.optional-dependencies]
