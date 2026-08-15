@@ -46,12 +46,14 @@ def parse_skill_spec(
 
     # Self-skill macro
     if spec_clean.lower() in ("$shskills", "$shskill", "$self"):
+        from shskills._version import __version__
+
         source = SkillSource(
             url="https://github.com/trelatomasz/shskills.git",
-            ref=default_ref,
-            subpath=None,
+            ref=default_ref if default_ref != DEFAULT_REF else f"v{__version__}",
+            subpath="shskills",
         )
-        return source, "$shskills"
+        return source, "shskills"
 
     # Match GitHub tree URL
     tree_match = _GITHUB_TREE_RE.match(spec_clean)

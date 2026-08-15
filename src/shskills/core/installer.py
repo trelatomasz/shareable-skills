@@ -24,7 +24,7 @@ from shskills.core.manifest import (
 )
 from shskills.core.planner import discover_skills
 from shskills.core.validator import compute_skill_sha256
-from shskills.exceptions import ConfigError, InstallError
+from shskills.exceptions import ConfigError, FetchError, InstallError
 from shskills.models import (
     DoctorIssue,
     DoctorReport,
@@ -519,26 +519,6 @@ def sync_project(
     with tempfile.TemporaryDirectory(prefix="shskills-sync-") as tmpdir:
         stage_dir = Path(tmpdir)
 
-        # Check if $shskills self-skill was requested
-        has_self_skill = False
-        for key, req_skills in list(sources_map.items()):
-            if req_skills and "$shskills" in req_skills:
-                has_self_skill = True
-                filtered_req = [r for r in req_skills if r != "$shskills"]
-                if filtered_req:
-                    sources_map[key] = filtered_req
-                else:
-                    del sources_map[key]
-
-        if has_self_skill:
-            from shskills.self_install import _self_skill_content
-
-            staged_self = stage_dir / "shskills"
-            staged_self.mkdir(parents=True, exist_ok=True)
-            (staged_self / "SKILL.md").write_text(_self_skill_content(), encoding="utf-8")
-            self_discovered = discover_skills(stage_dir)
-            all_discovered.extend([s for s in self_discovered if s.name == "shskills"])
-
         for (is_url, loc, ref, subpath), req_skills in sources_map.items():
             if not is_url:
                 local_dir = Path(loc)
@@ -554,16 +534,27 @@ def sync_project(
                 all_discovered.extend(discovered)
             else:
                 src = SkillSource(url=loc, ref=ref, subpath=subpath)
-                with fetch_skills_tree(src) as skills_root:
-                    discovered = discover_skills(skills_root, subpath)
-                    try:
+                try:
+                    with fetch_skills_tree(src) as skills_root:
+                        discovered = discover_skills(skills_root, subpath)
+                        try:
+                            discovered = select_requested_skills(discovered, req_skills)
+                        except InstallError as exc:
+                            raise InstallError(f"{exc} in '{loc}'") from exc
+                        for s in discovered:
+                            staged_path = stage_dir / s.name
+                            shutil.copytree(str(s.local_path), str(staged_path), dirs_exist_ok=True)
+                            all_discovered.append(s.model_copy(update={"local_path": staged_path}))
+                except FetchError:
+                    from shskills.self_install import _fallback_local_skills_path
+
+                    fallback_dir = _fallback_local_skills_path()
+                    if fallback_dir is not None and "shskills" in loc:
+                        discovered = discover_skills(fallback_dir, subpath)
                         discovered = select_requested_skills(discovered, req_skills)
-                    except InstallError as exc:
-                        raise InstallError(f"{exc} in '{loc}'") from exc
-                    for s in discovered:
-                        staged_path = stage_dir / s.name
-                        shutil.copytree(str(s.local_path), str(staged_path), dirs_exist_ok=True)
-                        all_discovered.append(s.model_copy(update={"local_path": staged_path}))
+                        all_discovered.extend(discovered)
+                    else:
+                        raise
 
         primary_source = SkillSource(path=project.path, url=project.url, ref=project.ref)
 

@@ -111,13 +111,15 @@ def test_parse_skill_spec() -> None:
     assert name4 is None
 
     # $shskills macro
+    from shskills._version import __version__
+
     source5, name5 = parse_skill_spec("$shskills")
     assert source5 == SkillSource(
         url="https://github.com/trelatomasz/shskills.git",
-        ref="main",
-        subpath=None,
+        ref=f"v{__version__}",
+        subpath="shskills",
     )
-    assert name5 == "$shskills"
+    assert name5 == "shskills"
 
 
 @pytest.mark.parametrize(
